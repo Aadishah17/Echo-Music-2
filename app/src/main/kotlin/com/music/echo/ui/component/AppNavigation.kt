@@ -197,7 +197,7 @@ fun AppNavigationRail(
             onDismissRequest = { showMoreOptionsSheet = false },
             sheetState = sheetState,
             dragHandle = { BottomSheetDefaults.DragHandle() },
-            containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainerLow
+            containerColor = MaterialTheme.colorScheme.surfaceContainer
         ) {
             Column(
                 modifier = Modifier
