@@ -170,7 +170,6 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
             SearchableSetting(stringResource(R.string.lyrics_line_spacing), stringResource(R.string.lyrics_line_spacing_desc), "Appearance", "settings/appearance"),
             SearchableSetting(stringResource(R.string.lyrics_provider_priority), stringResource(R.string.lyrics_provider_priority_desc), "Content", "settings/content"),
             SearchableSetting(stringResource(R.string.lyrics_romanization), stringResource(R.string.lyrics_romanization_desc), "Content", "settings/content"),
-            SearchableSetting(stringResource(R.string.lyrics_romanization_cyrillic), stringResource(R.string.lyrics_romanization_cyrillic_desc), "Romanization", "settings/appearance"),
             SearchableSetting(stringResource(R.string.lyrics_romanize_as_main), stringResource(R.string.lyrics_romanize_as_main_desc), "Romanization", "settings/appearance"),
             SearchableSetting(stringResource(R.string.lyrics_romanize_belarusian), stringResource(R.string.lyrics_romanize_belarusian_desc), "Romanization", "settings/appearance"),
             SearchableSetting(stringResource(R.string.lyrics_romanize_bulgarian), stringResource(R.string.lyrics_romanize_bulgarian_desc), "Romanization", "settings/appearance"),
