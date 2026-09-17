@@ -578,9 +578,6 @@ fun Lyrics(
     val isLyricsProviderShown = lyricsEntity?.provider != null && lyricsEntity?.provider != "Unknown" && !isSelectionModeActive
 
     val lazyListState = rememberLazyListState()
-
-
-    var isAnimating by remember { mutableStateOf(false) }
     var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
 
 
@@ -668,29 +665,21 @@ fun Lyrics(
     }
 
     suspend fun performSmoothPageScroll(targetIndex: Int, duration: Int = 1500) {
-        if (isAnimating) return
-        isAnimating = true
-        try {
-            val lookUpIndex = if (isLyricsProviderShown) targetIndex + 1 else targetIndex
-            val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lookUpIndex }
-            if (itemInfo != null) {
-
-                val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-                val itemCenter = itemInfo.offset + itemInfo.size / 2
-                val offset = itemCenter - center
-                if (kotlin.math.abs(offset) > 10) {
-                    lazyListState.animateScrollBy(
-                        value = offset.toFloat(),
-                        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow)
-                    )
-                }
-            } else {
-
-                lazyListState.scrollToItem(targetIndex)
+        val lookUpIndex = if (isLyricsProviderShown) targetIndex + 1 else targetIndex
+        val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == lookUpIndex }
+        if (itemInfo != null) {
+            val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
+            val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+            val itemCenter = itemInfo.offset + itemInfo.size / 2
+            val offset = itemCenter - center
+            if (kotlin.math.abs(offset) > 10) {
+                lazyListState.animateScrollBy(
+                    value = offset.toFloat(),
+                    animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessVeryLow)
+                )
             }
-        } finally {
-            isAnimating = false
+        } else {
+            lazyListState.scrollToItem(targetIndex)
         }
     }
     LaunchedEffect(currentLineIndex, lastPreviewTime, initialScrollDone, isAutoScrollEnabled) {
@@ -1237,13 +1226,6 @@ fun Lyrics(
                             this.alpha = if (item.isBackground) alpha * 0.8f else alpha
                             this.scaleX = scale * bgScale
                             this.scaleY = scale * bgScale
-                            if (blurRadius > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                                this.renderEffect = android.graphics.RenderEffect.createBlurEffect(
-                                    blurRadius * density.density,
-                                    blurRadius * density.density,
-                                    android.graphics.Shader.TileMode.CLAMP
-                                ).asComposeRenderEffect()
-                            }
                         },
                         horizontalAlignment = agentAlignment
                     ) {
