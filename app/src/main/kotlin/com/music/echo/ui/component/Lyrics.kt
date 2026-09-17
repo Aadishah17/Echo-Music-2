@@ -2016,57 +2016,69 @@ fun Lyrics(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    androidx.compose.material3.FilledTonalButton(
-                        onClick = {
-                            val shareIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                type = "text/plain"
-                                val songLink = "https://share.echomusic.fun/watch?v=${mediaMetadata?.id}"
-                                putExtra(
-                                    Intent.EXTRA_TEXT,
-                                    "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        androidx.compose.material3.FilledTonalButton(
+                            onClick = {
+                                val shareIntent = Intent().apply {
+                                    action = Intent.ACTION_SEND
+                                    type = "text/plain"
+                                    val songLink = "https://share.echomusic.fun/watch?v=${mediaMetadata?.id}"
+                                    putExtra(
+                                        Intent.EXTRA_TEXT,
+                                        "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
+                                    )
+                                }
+                                context.startActivity(
+                                    Intent.createChooser(
+                                        shareIntent,
+                                        context.getString(R.string.share_lyrics)
+                                    )
                                 )
-                            }
-                            context.startActivity(
-                                Intent.createChooser(
-                                    shareIntent,
-                                    context.getString(R.string.share_lyrics)
-                                )
+                                showShareDialog = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.share_as_text),
+                                fontSize = 16.sp
                             )
-                            showShareDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.share),
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.share_as_text),
-                            fontSize = 16.sp
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
+                        }
 
-                    androidx.compose.material3.FilledTonalButton(
-                        onClick = {
-                            shareDialogData = Triple(lyricsText, songTitle, artists)
-                            showColorPickerDialog = true
-                            showShareDialog = false
-                        },
-                        modifier = Modifier.fillMaxWidth()
+                        androidx.compose.material3.FilledTonalButton(
+                            onClick = {
+                                shareDialogData = Triple(lyricsText, songTitle, artists)
+                                showColorPickerDialog = true
+                                showShareDialog = false
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.share_as_image),
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp, bottom = 0.dp),
+                        horizontalArrangement = Arrangement.End,
                     ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.share),
-                            contentDescription = null
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(R.string.share_as_image),
-                            fontSize = 16.sp
-                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { showShareDialog = false },
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.cancel),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
