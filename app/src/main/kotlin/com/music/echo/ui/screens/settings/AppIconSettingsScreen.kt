@@ -101,7 +101,11 @@ fun AppIconSettingsScreen(
         ) {
             val icons = listOf(
                 AppIconOption(AppIconType.DEFAULT, "New Icon", "The standard vibrant icon", R.mipmap.ic_launcher),
-                AppIconOption(AppIconType.LEGACY, "Legacy Icon", "The original monochrome icon", R.mipmap.legacy_icon)
+                AppIconOption(AppIconType.LEGACY, "Legacy Icon", "The original monochrome icon", R.mipmap.legacy_icon),
+                AppIconOption(AppIconType.CAT, "Cat Icon", "A Pinkish cat-themed icon", R.mipmap.cat_icon),
+                AppIconOption(AppIconType.CRAZY_BLUE, "Crazy Blue Icon", "A vibrant crazy blue icon", R.mipmap.crazy_blue_icon),
+                AppIconOption(AppIconType.POOKIE, "Pookie Icon", "A Cute Pink icon", R.mipmap.pookie_icon),
+                AppIconOption(AppIconType.SKY, "Sky Icon", "A beautiful sky-themed icon", R.mipmap.sky_icon)
             )
 
             Card(
@@ -139,7 +143,7 @@ fun AppIconRow(
     onClick: () -> Unit
 ) {
     val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else Color.Transparent
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -169,9 +173,9 @@ fun AppIconRow(
                 )
             }
         }
-        
+
         Spacer(modifier = Modifier.width(16.dp))
-        
+
         Column(
             modifier = Modifier.weight(1f)
         ) {
@@ -186,7 +190,7 @@ fun AppIconRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        
+
         RadioButton(
             selected = isSelected,
             onClick = onClick
