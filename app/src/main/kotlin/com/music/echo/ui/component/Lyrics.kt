@@ -1106,9 +1106,22 @@ fun Lyrics(
                         )
                         return@itemsIndexed
                     }
+                    val isPrevSelected = selectedIndices.contains(index - 1)
+                    val isNextSelected = selectedIndices.contains(index + 1)
+                    val cornerShape = if (isSelected && isSelectionModeActive) {
+                        androidx.compose.foundation.shape.RoundedCornerShape(
+                            topStart = if (isPrevSelected) 0.dp else 16.dp,
+                            topEnd = if (isPrevSelected) 0.dp else 16.dp,
+                            bottomStart = if (isNextSelected) 0.dp else 16.dp,
+                            bottomEnd = if (isNextSelected) 0.dp else 16.dp
+                        )
+                    } else {
+                        androidx.compose.foundation.shape.RoundedCornerShape(16.dp)
+                    }
+
                     val itemModifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(cornerShape)
                         .combinedClickable(
                             enabled = true,
                             onClick = {
@@ -1986,14 +1999,13 @@ fun Lyrics(
         val (lyricsText, songTitle, artists) = shareDialogData!!
         BasicAlertDialog(onDismissRequest = { showShareDialog = false }) {
             Card(
-                shape = MaterialTheme.shapes.medium,
-                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 ),
                 modifier = Modifier
-                    .padding(16.dp)
-                    .fillMaxWidth(0.85f)
+                    .fillMaxWidth(0.9f)
             ) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -2042,6 +2054,8 @@ fun Lyrics(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    
+                    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha=0.5f), modifier = Modifier.padding(horizontal = 16.dp))
 
                     Row(
                         modifier = Modifier
@@ -2071,18 +2085,20 @@ fun Lyrics(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp, bottom = 4.dp),
+                            .padding(top = 8.dp, bottom = 0.dp),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        Text(
-                            text = stringResource(R.string.cancel),
-                            fontSize = 16.sp,
-                            color = MaterialTheme.colorScheme.error,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .clickable { showShareDialog = false }
-                                .padding(vertical = 8.dp, horizontal = 12.dp)
-                        )
+                        androidx.compose.material3.TextButton(
+                            onClick = { showShareDialog = false },
+                            modifier = Modifier.padding(end = 4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.cancel),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
