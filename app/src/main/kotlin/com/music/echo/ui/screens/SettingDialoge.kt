@@ -212,17 +212,11 @@ fun SettingDialoge(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "Privacy Policy",
+                    text = "You just enjoy the music, dev is still cooking behind \uD83D\uDC68\u200D\uD83C\uDF73",
                     style = MaterialTheme.typography.bodySmall,
                     color = onSecondaryColor,
-                    modifier = Modifier.clickable { uriHandler.openUri("https://echomusic.fun/p/privacy-policy") }.padding(4.dp)
-                )
-                Text(text = " • ", color = onSecondaryColor, style = MaterialTheme.typography.bodySmall)
-                Text(
-                    text = "Terms of Service",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = onSecondaryColor,
-                    modifier = Modifier.clickable { uriHandler.openUri("https://echomusic.fun/p/toc") }.padding(4.dp)
+                    modifier = Modifier.padding(4.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
             }
         }
