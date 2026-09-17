@@ -6,8 +6,14 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 
+enum class AppIconType(val value: Int) {
+    DEFAULT(0),
+    LEGACY(1),
+    STATIC(2)
+}
+
 object IconUtils {
-    fun setIcon(context: Context, isDynamic: Boolean, isLegacy: Boolean) {
+    fun setIcon(context: Context, iconType: AppIconType) {
         val pm = context.packageManager
         val dynamic = ComponentName(context, "echo.music.iad1tya.MainActivityAlias")
         val static = ComponentName(context, "echo.music.iad1tya.MainActivityStatic")
@@ -15,17 +21,17 @@ object IconUtils {
 
         pm.setComponentEnabledSetting(
             dynamic,
-            if (isDynamic && !isLegacy) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        pm.setComponentEnabledSetting(
-            static,
-            if (!isDynamic && !isLegacy) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            if (iconType == AppIconType.DEFAULT) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP
         )
         pm.setComponentEnabledSetting(
             legacy,
-            if (isLegacy) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            if (iconType == AppIconType.LEGACY) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        pm.setComponentEnabledSetting(
+            static,
+            if (iconType == AppIconType.STATIC) PackageManager.COMPONENT_ENABLED_STATE_ENABLED else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
             PackageManager.DONT_KILL_APP
         )
     }
