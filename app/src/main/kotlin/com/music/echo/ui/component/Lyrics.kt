@@ -2016,50 +2016,47 @@ fun Lyrics(
                     )
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        androidx.compose.material3.FilledTonalButton(
-                            onClick = {
-                                val shareIntent = Intent().apply {
-                                    action = Intent.ACTION_SEND
-                                    type = "text/plain"
-                                    val songLink = "https://share.echomusic.fun/watch?v=${mediaMetadata?.id}"
-                                    putExtra(
-                                        Intent.EXTRA_TEXT,
-                                        "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
-                                    )
-                                }
-                                context.startActivity(
-                                    Intent.createChooser(
-                                        shareIntent,
-                                        context.getString(R.string.share_lyrics)
-                                    )
+                                        androidx.compose.material3.FilledTonalButton(
+                        onClick = {
+                            val shareIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                type = "text/plain"
+                                val songLink = "https://share.echomusic.fun/watch?v=${mediaMetadata?.id}"
+                                putExtra(
+                                    Intent.EXTRA_TEXT,
+                                    "\"$lyricsText\"\n\n$songTitle - $artists\n$songLink"
                                 )
-                                showShareDialog = false
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.share_as_text),
-                                fontSize = 16.sp
+                            }
+                            context.startActivity(
+                                Intent.createChooser(
+                                    shareIntent,
+                                    context.getString(R.string.share_lyrics)
+                                )
                             )
-                        }
+                            showShareDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.share_as_text),
+                            fontSize = 16.sp
+                        )
+                    }
 
-                        androidx.compose.material3.FilledTonalButton(
-                            onClick = {
-                                shareDialogData = Triple(lyricsText, songTitle, artists)
-                                showColorPickerDialog = true
-                                showShareDialog = false
-                            },
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.share_as_image),
-                                fontSize = 16.sp
-                            )
-                        }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    androidx.compose.material3.FilledTonalButton(
+                        onClick = {
+                            shareDialogData = Triple(lyricsText, songTitle, artists)
+                            showColorPickerDialog = true
+                            showShareDialog = false
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.share_as_image),
+                            fontSize = 16.sp
+                        )
                     }
 
                     Row(
