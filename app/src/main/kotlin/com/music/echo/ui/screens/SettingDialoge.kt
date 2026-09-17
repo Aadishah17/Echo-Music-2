@@ -103,7 +103,7 @@ fun SettingDialoge(
                             } else null,
                             onClick = {
                                 onDismissRequest()
-                                if (isLoggedIn) onNavigate("settings/account") else onNavigate("login") 
+                                if (isLoggedIn) onNavigate("settings/account") else onNavigate("login")
                             }
                         )
                     )
@@ -188,18 +188,18 @@ fun SettingDialoge(
                         title = { Text(androidx.compose.ui.res.stringResource(R.string.settings)) },
                         description = { Text(androidx.compose.ui.res.stringResource(R.string.setting_desc_settings_main)) },
                         icon = painterResource(R.drawable.settings),
-                        onClick = { 
+                        onClick = {
                             onDismissRequest()
-                            onNavigate("settings") 
+                            onNavigate("settings")
                         }
                     ),
                     Material3SettingsItem(
                         title = { Text("About") },
                         icon = painterResource(R.drawable.info),
                         trailingContent = { Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        onClick = { 
+                        onClick = {
                             onDismissRequest()
-                            onNavigate("settings/about") 
+                            onNavigate("settings/about")
                         }
                     )
                 )
@@ -212,7 +212,7 @@ fun SettingDialoge(
                 horizontalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "You just enjoy the music, dev is still cooking behind \uD83D\uDC68\u200D\uD83C\uDF73",
+                    text = "Just vibe to the music — the dev's got the rest handled.",
                     style = MaterialTheme.typography.bodySmall,
                     color = onSecondaryColor,
                     modifier = Modifier.padding(4.dp),
