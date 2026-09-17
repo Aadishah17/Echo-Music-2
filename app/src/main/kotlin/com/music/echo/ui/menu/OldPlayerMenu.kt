@@ -140,7 +140,7 @@ fun OldPlayerMenu(
             title = { androidx.compose.material3.Text("Re-export") },
             text = { androidx.compose.material3.Text("Wanna re-export it again?") },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
+                androidx.compose.material3.Button(onClick = {
                     showReExportDialog = false
                     if (exportDirectoryUri.isBlank()) {
                                             android.widget.Toast.makeText(context, context.getString(R.string.export_directory_not_set), android.widget.Toast.LENGTH_SHORT).show()
@@ -162,7 +162,7 @@ fun OldPlayerMenu(
                 }
             },
             dismissButton = {
-                androidx.compose.material3.TextButton(onClick = { showReExportDialog = false }) {
+                androidx.compose.material3.OutlinedButton(onClick = { showReExportDialog = false }) {
                     androidx.compose.material3.Text("No")
                 }
             }
