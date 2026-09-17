@@ -119,9 +119,11 @@ fun FloatingNavigationToolbar(
         toolbarContainerColor = androidx.compose.ui.graphics.Color.Transparent,
     )
     
+    val outlineColor = androidx.compose.material3.MaterialTheme.colorScheme.outline
     val toolbarModifier = androidx.compose.ui.Modifier
         .clip(androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))
         .background(toolbarContainerColor)
+        .border(1.dp, outlineColor.copy(alpha = 0.3f), androidx.compose.foundation.shape.RoundedCornerShape(percent = 50))
 
     val hasOverflowMenu = (onShuffleClick != null && shuffleIconRes != null) || onMusicRecognitionClick != null
     val hasFabAction = onFabClick != null && fabIconRes != null
