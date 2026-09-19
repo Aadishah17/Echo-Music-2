@@ -4491,6 +4491,28 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                 songUrlCache["${mediaId}_${audioQuality.name}"] =
                   Pair(streamUrl, System.currentTimeMillis() + 1000 * 60 * 60)
                 Timber.tag(TAG).d("Preloaded stream for $mediaId")
+                
+                kotlin.runCatching {
+                  Timber.tag(TAG).d("AOT Preloading bytes for $mediaId")
+                  val dataSpec = androidx.media3.datasource.DataSpec.Builder()
+                    .setUri(android.net.Uri.parse(streamUrl))
+                    .setKey("${mediaId}_${audioQuality.name}")
+                    .setLength(2 * 1024 * 1024)
+                    .build()
+                  val cacheDataSource = createCacheDataSource().createDataSource()
+                  val cacheWriter = androidx.media3.datasource.cache.CacheWriter(
+                    cacheDataSource,
+                    dataSpec,
+                    null,
+                    null
+                  )
+                  cacheWriter.cache()
+                  Timber.tag(TAG).d("AOT Preloading bytes for $mediaId completed")
+                }.onFailure { e ->
+                  if (e !is kotlinx.coroutines.CancellationException) {
+                    Timber.tag(TAG).e(e, "AOT Preloading bytes failed for $mediaId")
+                  }
+                }
               }
             }
           }
