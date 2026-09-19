@@ -65,18 +65,6 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
         <img src="Screenshots/library.png" alt="Music Library" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
       </td>
     </tr>
-    <tr>
-      <td align="center" style="padding: 15px; border: none;">
-        <b>Echo Find</b><br><br>
-        <img src="Screenshots/Echo%20find.png" alt="Echo Find" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
-      </td>
-      <td align="center" style="padding: 15px; border: none;">
-        <b>Menu Options</b><br><br>
-        <img src="Screenshots/Echo%20Menu.png" alt="Menu Options" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
-      </td>
-      <td align="center" style="padding: 15px; border: none;">
-      </td>
-    </tr>
   </table>
 </div>
 
