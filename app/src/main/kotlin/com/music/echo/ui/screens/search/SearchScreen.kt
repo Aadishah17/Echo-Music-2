@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -328,6 +329,11 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
             Modifier.fillMaxWidth()
               .padding(horizontal = searchBarHorizontalPadding)
               .padding(top = searchBarTopPadding)
+              .border(
+                  width = 1.dp,
+                  color = if (!searchActive) MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f) else androidx.compose.ui.graphics.Color.Transparent,
+                  shape = RoundedCornerShape(100.dp) // SearchBar is a pill shape when collapsed
+              )
         ) {
           if (showSearchContent) {
             when (searchSource) {
@@ -370,7 +376,11 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
             SecondaryTabRow(
               selectedTabIndex = selectedTabIndex,
               containerColor = Color.Transparent,
-              divider = {},
+              divider = {
+                androidx.compose.material3.HorizontalDivider(
+                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                )
+              },
               indicator = {
                 Box(
                   modifier = Modifier.tabIndicatorOffset(selectedTabIndex).fillMaxWidth(),
@@ -484,7 +494,12 @@ fun ExploreTabContent(
                   .padding(6.dp)
                   .height(64.dp)
                   .clip(RoundedCornerShape(12.dp))
-                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                  .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                  .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp)
+                  )
                   .clickable {
                     navController.navigate(
                       "youtube_browse/${item.endpoint.browseId}?params=${item.endpoint.params}"
