@@ -39,9 +39,11 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
 
-    // LastFM API keys from GitHub Secrets
-    val lastFmKey = "266d77b5790e413ada7e41ef100d017a"
-    val lastFmSecret = "41d3ae3b039ddac06c37fb30055bf93b"
+    // LastFM API keys are supplied by local.properties or CI secrets.
+    val lastFmKey =
+      localProperties.getProperty("LASTFM_API_KEY") ?: System.getenv("LASTFM_API_KEY") ?: ""
+    val lastFmSecret =
+      localProperties.getProperty("LASTFM_SECRET") ?: System.getenv("LASTFM_SECRET") ?: ""
 
     buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
     buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")
@@ -82,14 +84,7 @@ android {
 
   flavorDimensions += listOf("abi", "variant")
   productFlavors {
-    // FOSS variant (default) - F-Droid compatible, no Google Play Services
-    create("foss") {
-      dimension = "variant"
-      isDefault = true
-      buildConfigField("Boolean", "CAST_AVAILABLE", "false")
-    }
-
-    // GMS variant - with Google Cast support (requires Google Play Services)
+    // GMS is the only supported variant.
     create("gms") {
       dimension = "variant"
       buildConfigField("Boolean", "CAST_AVAILABLE", "true")
@@ -242,12 +237,12 @@ dependencies {
   implementation(project(":core"))
   implementation(project(":playback"))
 
-  // Firebase - GMS flavor only (excluded from F-Droid / FOSS builds)
+  // Firebase
   "gmsImplementation"(platform("com.google.firebase:firebase-bom:33.1.0"))
   "gmsImplementation"("com.google.firebase:firebase-analytics")
   "gmsImplementation"("com.google.firebase:firebase-crashlytics")
 
-  // Google Drive Sync - GMS flavor only
+  // Google Drive Sync
   "gmsImplementation"(libs.play.services.auth)
   "gmsImplementation"(libs.play.services.location)
   "gmsImplementation"(libs.google.api.client.android)
@@ -299,7 +294,7 @@ dependencies {
   implementation(libs.media3.ui)
   implementation(libs.media3.okhttp)
 
-  // Google Cast - only included in GMS flavor (not available in F-Droid/FOSS builds)
+  // Google Cast
   "gmsImplementation"(libs.mediarouter)
   "gmsImplementation"(libs.cast.framework)
 

@@ -16,7 +16,6 @@ android {
   flavorDimensions += "variant"
   productFlavors {
     create("gms") { dimension = "variant" }
-    create("foss") { dimension = "variant" }
   }
 }
 

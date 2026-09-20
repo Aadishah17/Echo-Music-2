@@ -7,3 +7,7 @@
 # sdk.dir=C\:\\Users\\username\\AppData\\Local\\Android\\sdk
 
 sdk.dir=YOUR_ANDROID_SDK_PATH
+
+# Optional: enables Last.fm scrobbling in local builds.
+LASTFM_API_KEY=
+LASTFM_SECRET=

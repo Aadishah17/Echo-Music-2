@@ -184,17 +184,15 @@ Download the latest pre-compiled APK from the [Releases Page](https://github.com
 3. **Firebase Configuration (Optional)**
    Firebase is required for analytics and crash reporting. See the instructions in [SETUP.md](SETUP.md#3-configure-firebase-optional) for adding your `google-services.json`.
 
-4. **Build the Application**
-   Echo Music has two build variants: **FOSS** (without Google Play Services / Cast) and **GMS** (with Cast support).
+4. **Last.fm Configuration (Optional)**
+   To enable Last.fm scrobbling in a local build, add `LASTFM_API_KEY` and `LASTFM_SECRET` to `local.properties` or provide them as environment variables.
 
-   - To build the **FOSS** Universal Debug variant:
-     ```bash
-     ./gradlew assembleUniversalFossDebug
-     ```
-   - To build the **GMS** Universal Debug variant:
-     ```bash
-     ./gradlew assembleUniversalGmsDebug
-     ```
+5. **Build the Application**
+   Echo Music ships a single **GMS** build variant with Cast support:
+
+   ```bash
+   ./gradlew assembleUniversalGmsDebug
+   ```
 
    _(For optimized ARM64 builds, release builds, or other options, refer to [SETUP.md](SETUP.md))_
 
@@ -258,6 +256,7 @@ Echo Music stands on the shoulders of several excellent open-source projects. Si
 | Project                                                                                                                   | Description                                         |
 | :------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------- |
 | **[Metrolist](https://github.com/MetrolistGroup/Metrolist)** & **[Vivi Music](https://github.com/vivizzz007/vivi-music)** | Foundational inspiration and architecture reference |
+| **[Echo Music](https://github.com/iad1tya/Echo-Music)** | Last.fm build-time credential configuration reference |
 | **[ArchiveTune](https://github.com/koiverse/ArchiveTune)**                                                                | Material You UI inspiration                         |
 | **[Better Lyrics](https://better-lyrics.boidu.dev/)**                                                                     | Lyrics enhancement and synchronization              |
 | **[SimpMusic](https://github.com/maxrave-dev/SimpMusic)**                                                                 | Lyrics implementation reference                     |
