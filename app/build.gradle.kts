@@ -33,8 +33,8 @@ android {
     applicationId = "echo.music.iad1tya"
     minSdk = 26
     targetSdk = 36
-    versionCode = 158
-    versionName = "1.3.0"
+    versionCode = 159
+    versionName = "1.3.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
@@ -247,13 +247,8 @@ dependencies {
   "gmsImplementation"("com.google.firebase:firebase-analytics")
   "gmsImplementation"("com.google.firebase:firebase-crashlytics")
 
-  // Google Drive Sync - GMS flavor only
-  "gmsImplementation"(libs.play.services.auth)
+  // GMS Location Services for high-accuracy weather AI context
   "gmsImplementation"(libs.play.services.location)
-  "gmsImplementation"(libs.google.api.client.android)
-  "gmsImplementation"(libs.google.api.services.drive) {
-    exclude(group = "org.apache.httpcomponents")
-  }
 
   implementation(libs.haze)
   implementation(libs.guava)
@@ -282,7 +277,6 @@ dependencies {
   implementation(libs.androidx.adaptive.navigation)
   implementation(libs.palette)
   implementation(libs.materialKolor)
-  implementation(libs.androidx.browser)
 
   implementation(libs.appcompat)
 
@@ -298,6 +292,8 @@ dependencies {
   implementation(libs.media3.hls)
   implementation(libs.media3.ui)
   implementation(libs.media3.okhttp)
+  implementation(libs.media3.cronet)
+  implementation("com.google.android.gms:play-services-cronet:18.0.1")
 
   // Google Cast - only included in GMS flavor (not available in F-Droid/FOSS builds)
   "gmsImplementation"(libs.mediarouter)
@@ -312,7 +308,6 @@ dependencies {
   implementation(libs.apache.lang3)
 
   implementation(libs.hilt)
-  implementation(libs.jsoup)
   ksp(libs.hilt.compiler)
 
   implementation(project(":innertube"))

@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
@@ -354,65 +355,7 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
           }
         }
 
-        AnimatedVisibility(
-          visible = !searchActive,
-          enter =
-            expandVertically(
-              animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing)
-            ) + fadeIn(),
-          exit =
-            shrinkVertically(
-              animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing)
-            ) + fadeOut()
-        ) {
-          Column {
-            Spacer(modifier = Modifier.height(8.dp))
-            SecondaryTabRow(
-              selectedTabIndex = selectedTabIndex,
-              containerColor = Color.Transparent,
-              divider = {},
-              indicator = {
-                Box(
-                  modifier = Modifier.tabIndicatorOffset(selectedTabIndex).fillMaxWidth(),
-                  contentAlignment = Alignment.BottomCenter
-                ) {
-                  Box(
-                    modifier =
-                      Modifier.width(32.dp)
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        .background(MaterialTheme.colorScheme.onSurface)
-                  )
-                }
-              }
-            ) {
-              Tab(
-                selected = selectedTabIndex == 0,
-                onClick = { selectedTabIndex = 0 },
-                modifier = Modifier.padding(vertical = 12.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text(stringResource(R.string.tab_explore)) }
-              )
-              Tab(
-                selected = selectedTabIndex == 1,
-                onClick = { selectedTabIndex = 1 },
-                modifier = Modifier.padding(vertical = 12.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text("Echo Chart") }
-              )
-              Tab(
-                selected = selectedTabIndex == 2,
-                onClick = { selectedTabIndex = 2 },
-                modifier = Modifier.padding(vertical = 12.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text(stringResource(R.string.tab_album)) }
-              )
-            }
-          }
-        }
+
       }
     },
     containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.background
@@ -423,11 +366,7 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
     Box(modifier = Modifier.padding(top = paddingValues.calculateTopPadding()).fillMaxSize()) {
       if (!searchActive) {
         val tabPadding = PaddingValues(bottom = bottomPadding)
-        when (selectedTabIndex) {
-          0 -> ExploreTabContent(navController = navController, contentPadding = tabPadding)
-          1 -> SuggestionsTabContent(navController = navController, contentPadding = tabPadding)
-          2 -> AlbumsTabContent(navController = navController, contentPadding = tabPadding)
-        }
+        SuggestionsTabContent(navController = navController, contentPadding = tabPadding)
       }
     }
   }
@@ -484,7 +423,12 @@ fun ExploreTabContent(
                   .padding(6.dp)
                   .height(64.dp)
                   .clip(RoundedCornerShape(12.dp))
-                  .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                  .background(MaterialTheme.colorScheme.surfaceContainerLow)
+                  .border(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    shape = RoundedCornerShape(12.dp)
+                  )
                   .clickable {
                     navController.navigate(
                       "youtube_browse/${item.endpoint.browseId}?params=${item.endpoint.params}"
