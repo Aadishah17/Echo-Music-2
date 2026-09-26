@@ -322,3 +322,4 @@ but there's no dedicated test-run gate to rely on — verify manually.
 
 - `.github/workflows/android-build.yml` — build check
 - `.github/workflows/codeql.yml` — static analysis / security scanning
+- Ambient Mode Canvas background: use the existing Canvas provider/cache/player infrastructure as a non-interactive full-screen video layer behind the existing Ambient Mode content; keep the existing glow background underneath as the fallback.
