@@ -26,15 +26,15 @@ if (hasGoogleServicesConfig) {
 
 android {
   namespace = "echo.music.iad1tya"
-  compileSdk = 36
+  compileSdk = 37
   ndkVersion = "27.0.12077973"
 
   defaultConfig {
     applicationId = "echo.music.iad1tya"
     minSdk = 26
     targetSdk = 36
-    versionCode = 159
-    versionName = "1.3.1"
+    versionCode = 160
+    versionName = "1.3.2"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
@@ -309,8 +309,15 @@ dependencies {
 
   implementation(libs.hilt)
   ksp(libs.hilt.compiler)
+  ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
+  annotationProcessor("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
+
+
+
 
   implementation(project(":innertube"))
+  implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
+
   implementation(project(":lyrics"))
   implementation(project(":kugou"))
   implementation(project(":lrclib"))

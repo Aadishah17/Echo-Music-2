@@ -168,7 +168,7 @@ fun AppIconSettingsScreen(
         AppIconOption(
           AppIconType.SABRINA_CARPENTER_2,
           "Sabrina Carpenter 2",
-          "Suggested by Falvik",
+          "Suggested by notdieinganymore",
           R.mipmap.ic_launcher_sabrina2
         ),
         AppIconOption(
