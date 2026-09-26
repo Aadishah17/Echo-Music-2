@@ -54,3 +54,7 @@ Always use `MaterialTheme.typography` but respect the app's established font wei
 Before adding a brand new UI component, always check `ui/component/` to see if an existing one already implements our conventions.
 
 **Key Rule:** When working on UI, **look at the existing screens** (like the original Listen Together or Settings screens) and copy their specific visual style, spacing, and modifier chains. Do NOT refactor existing screens to match standard Material 3 unless explicitly requested. Our custom aesthetic takes precedence over M3 guidelines.
+
+
+## Ambient Mode Canvas
+Ambient Mode may layer muted Canvas video artwork full-screen behind its existing album art and lyrics. The Canvas layer is non-interactive and follows the current playback state; the existing glow remains underneath as the fallback when no Canvas is available.
