@@ -38,9 +38,10 @@ fun AmbientCanvasBackground(modifier: Modifier = Modifier) {
     canvasArtwork = CanvasArtworkPlaybackCache.get(metadata.id)
     if (canvasArtwork != null) return@LaunchedEffect
 
-    val albumName = metadata.albumTitle?.toString().orEmpty()
-    val songTitleRaw = metadata.title?.toString().orEmpty()
-    val artistNameRaw = metadata.artist?.toString().orEmpty()
+    val itemMetadata = playerConnection.player.currentMediaItem?.mediaMetadata
+    val albumName = itemMetadata?.albumTitle?.toString().orEmpty()
+    val songTitleRaw = itemMetadata?.title?.toString().orEmpty()
+    val artistNameRaw = itemMetadata?.artist?.toString().orEmpty()
 
     val fetched =
       withContext(Dispatchers.IO) {
