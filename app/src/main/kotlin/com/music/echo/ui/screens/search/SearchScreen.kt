@@ -142,13 +142,13 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
 
   val searchBarHorizontalPadding by
     animateDpAsState(
-      targetValue = if (searchActive) 0.dp else 16.dp,
+      targetValue = 16.dp,
       animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing),
       label = "SearchBarHorizontalPadding"
     )
   val searchBarTopPadding by
     animateDpAsState(
-      targetValue = if (searchActive) 0.dp else 8.dp,
+      targetValue = 8.dp,
       animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing),
       label = "SearchBarTopPadding"
     )
@@ -317,7 +317,7 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
               }
             )
           },
-          expanded = searchActive,
+          expanded = false,
           onExpandedChange = { searchActive = it },
           colors =
             SearchBarDefaults.colors(
@@ -330,7 +330,19 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
               .padding(horizontal = searchBarHorizontalPadding)
               .padding(top = searchBarTopPadding)
         ) {
-          if (showSearchContent) {
+
+        }
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
+
+      }
+    },
+    containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.background
+  ) { paddingValues ->
+    val bottomPadding =
+      LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
+
+    Box(modifier = Modifier.padding(top = paddingValues.calculateTopPadding()).fillMaxSize()) {
+      if (searchActive && showSearchContent) {
             when (searchSource) {
               SearchSource.LOCAL ->
                 LocalSearchScreen(
@@ -352,19 +364,7 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
                   pureBlack = pureBlack
                 )
             }
-          }
-        }
-
-
-      }
-    },
-    containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.background
-  ) { paddingValues ->
-    val bottomPadding =
-      LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
-
-    Box(modifier = Modifier.padding(top = paddingValues.calculateTopPadding()).fillMaxSize()) {
-      if (!searchActive) {
+      } else if (!searchActive) {
         val tabPadding = PaddingValues(bottom = bottomPadding)
         SuggestionsTabContent(navController = navController, contentPadding = tabPadding)
       }
