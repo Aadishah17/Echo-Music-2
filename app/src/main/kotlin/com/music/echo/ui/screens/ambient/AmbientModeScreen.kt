@@ -125,7 +125,6 @@ fun AmbientModeScreen(navController: NavController) {
       }
   ) {
     AmbientGlowBackground(mediaMetadata = mediaMetadata, modifier = Modifier.fillMaxSize())
-    AmbientCanvasBackground(modifier = Modifier.fillMaxSize())
     Row(
       modifier = Modifier.fillMaxSize().safeDrawingPadding(),
       verticalAlignment = Alignment.CenterVertically
@@ -135,10 +134,7 @@ fun AmbientModeScreen(navController: NavController) {
         modifier = Modifier.weight(1f).fillMaxHeight().padding(32.dp),
         contentAlignment = Alignment.Center
       ) {
-        AsyncImage(
-          model = mediaMetadata?.thumbnailUrl,
-          contentDescription = "Album Art",
-          contentScale = ContentScale.Crop,
+        Box(
           modifier =
             Modifier.fillMaxHeight(0.85f)
               .aspectRatio(1f)
@@ -146,7 +142,15 @@ fun AmbientModeScreen(navController: NavController) {
               .pointerInput(Unit) {
                 detectTapGestures(onDoubleTap = { playerConnection.togglePlayPause() })
               }
-        )
+        ) {
+          AsyncImage(
+            model = mediaMetadata?.thumbnailUrl,
+            contentDescription = "Album Art",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize()
+          )
+          AmbientCanvasBackground(modifier = Modifier.fillMaxSize())
+        }
       }
 
       // Right Side: Lyrics
