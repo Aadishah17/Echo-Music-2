@@ -65,6 +65,20 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
         <img src="Screenshots/library.png" alt="Music Library" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
       </td>
     </tr>
+    <tr>
+      <td align="center" style="padding: 15px; border: none;">
+        <b>Liquid Glass Default</b><br><br>
+        <img src="Screenshots/Liquid%20Glass%20Default.png" alt="Liquid Glass Default" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
+      </td>
+      <td align="center" style="padding: 15px; border: none;">
+        <b>Liquid Glass (Apple)</b><br><br>
+        <img src="Screenshots/Liquid%20Glass%20Apple%20Inspired.png" alt="Liquid Glass (Apple)" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
+      </td>
+      <td align="center" style="padding: 15px; border: none;">
+        <b>Liquid Glass (Scrolling)</b><br><br>
+        <img src="Screenshots/Liquid%20Glass%20Apple%20Inspired%20(While%20Scrolling).png" alt="Liquid Glass (Scrolling)" width="220" style="border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.2);"/>
+      </td>
+    </tr>
   </table>
 </div>
 
