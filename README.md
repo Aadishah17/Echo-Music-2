@@ -25,6 +25,7 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
 
 - [Overview](#overview)
 - [Screenshots](#screenshots)
+- [Technical Architecture & Stack](#technical-architecture--stack)
 - [Features](#features)
 - [Installation & Setup](#installation--setup)
 - [Support the Project](#support-the-project)
@@ -81,6 +82,32 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
     </tr>
   </table>
 </div>
+
+---
+
+## Technical Architecture & Stack
+
+Echo Music is built on modern Android development practices, emphasizing clean architecture, modularity, and high performance.
+
+### Core Stack
+- **Kotlin:** 100% written in Kotlin, utilizing Coroutines and Flow for asynchronous data streams and state management.
+- **UI Framework:** Jetpack Compose (Material 3). We use a heavily customized dynamic color system that extends M3 with iOS-inspired glassmorphism effects via `RenderEffect`.
+- **Architecture:** MVVM (Model-View-ViewModel) combined with Clean Architecture principles. State is managed via `StateFlow` and hoisted where appropriate.
+- **Dependency Injection:** Hilt (Dagger) for robust, compile-time verified dependency injection across view models, repositories, and services.
+
+### Media & Playback
+- **Media3 (ExoPlayer):** The playback engine is powered by AndroidX Media3, providing a robust `MediaSessionService` that deeply integrates with Android's system media controls, Android Auto, and background playback capabilities.
+- **InnerTubeX Engine:** Handles complex media stream resolution, chunked caching, zero-latency read-ahead, and resilient playback bypassing BotGuard.
+- **Local Media Management:** Built-in capability to parse and play local on-device `.mp3`, `.flac`, and `.m4a` files.
+
+### Persistence & Data
+- **Room Database:** SQLite abstraction for caching songs, albums, artists, custom playlists, and offline lyrics locally.
+- **DataStore:** Type-safe preference storage using Jetpack DataStore (Preferences and Proto) to handle user settings and UI state persistence.
+
+### Distinctive Features Under the Hood
+- **Listen Together:** A custom real-time WebSockets synchronization protocol allowing sub-millisecond precision playback coordination between multiple clients.
+- **AI Lyrics Translation:** Configurable API integrations (OpenRouter, OpenAI) allowing on-the-fly, contextual translation of song lyrics.
+- **Spotify Fast Sync:** A dedicated sync engine that securely pulls user playlists from the Spotify Web API and matches them against the YouTube Music catalog.
 
 ---
 
