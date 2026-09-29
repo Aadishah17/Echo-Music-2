@@ -113,16 +113,10 @@ Echo Music is built on modern Android development practices, emphasizing clean a
 
 ## Features
 
-### What's New
+### Upcoming Features
 
-> - **Data Saver Mode (Beta)** — Automatically reduces data usage during playback for limited connections.
-> - **Settings Search Index** — Quickly find and navigate to any settings option instantly.
-> - **Redesigned UI** — Cleaner, faster, and more intuitive interface from the ground up.
-> - **Import & Sync from Spotify** — Bring your playlists over with ease and keep them up-to-date with one-tap Fast Sync.
-> - **Listen Together** — Sync music in real time, similar to Spotify Jam.
-> - **Podcast Support** — Listen to podcasts alongside your music library.
-> - **Local Media Support** — Play music files stored directly on your device.
 > - **Dynamic Island Support** — Enhanced playback notifications on supported Android devices.
+> - **Podcast Support** — Listen to podcasts alongside your music library.
 
 <br>
 
@@ -130,6 +124,7 @@ Echo Music is built on modern Android development practices, emphasizing clean a
 <summary><b>Streaming & Playback</b></summary>
 <br>
 
+- **Local Media Support** — Play music files stored directly on your device.
 - **Ad-Free** — Stream without any interruptions.
 - **InnerTubeX Engine** — Highly resilient playback engine bypassing age-restrictions and BotGuard with chunked caching and zero-latency read-ahead.
 - **Data Saver Mode** — Reduce data consumption when streaming on cellular networks.
@@ -167,6 +162,8 @@ Echo Music is built on modern Android development practices, emphasizing clean a
 <summary><b>Integrations</b></summary>
 <br>
 
+- **Import & Sync from Spotify** — Bring your playlists over with ease and keep them up-to-date with one-tap Fast Sync.
+- **Listen Together** — Sync music in real time, similar to Spotify Jam.
 - **Music Sharing via Odesli** — Share songs as Song.link for cross-platform listening.
 - **Set as Ringtone** — Directly set any song as your device ringtone.
 
@@ -185,6 +182,8 @@ Echo Music is built on modern Android development practices, emphasizing clean a
 <summary><b>Customization</b></summary>
 <br>
 
+- **Redesigned UI** — Cleaner, faster, and more intuitive interface from the ground up.
+- **Settings Search Index** — Quickly find and navigate to any settings option instantly.
 - **UI Density Scale** — Adjust interface spacing to your preference.
 - **High Refresh Rate Support** — Smoother UI and animations on supported displays.
 - **Fluid UI & Animations** — Material 3 Emphasized easing and GPU-accelerated lyrics for a silky smooth, lag-free experience.
