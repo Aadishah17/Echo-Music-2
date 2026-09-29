@@ -24,10 +24,30 @@ Use the correct semantic color roles as defined by our theme:
 
 ## 2. Liquid Glass System (Glassmorphism)
 
-A signature part of Echo Music's design is the **Liquid Glass** effect, which provides high-quality blur and translucency to navigation bars, headers, and media players.
+A signature part of Echo Music's design is the **Liquid Glass** effect, which provides high-quality blur, refraction, and translucency to navigation bars, headers, and media players.
 
-*   **Implementation:** Do not rely on simple alpha transparency. Use the custom `Modifier.liquidGlass(config = ...)` which applies a deep Gaussian blur using Android 12+ `RenderEffect`.
-*   **Blur Tuning:** To achieve a dense, clean blur (without a muddy grey tint), use a high `blurRadius` (e.g., `64f`) and explicitly set the `surfaceTintColor` to `MaterialTheme.colorScheme.surface` or `Color.Black` (if in pure black mode), keeping the `surfaceOpacity` moderate (e.g., `0.5f`).
+### Core Implementation
+The Liquid Glass effect is driven by a custom `Modifier.liquidGlass()` extension found in `GlassEffect.kt`. It utilizes a heavily customized RenderEffect pipeline (available on Android 12 / API 31+) over a recorded `Backdrop`.
+
+```kotlin
+// Basic Usage
+Modifier.liquidGlass(
+    config = LocalGlassEffectConfig.current,
+    shape = RoundedCornerShape(24.dp),
+    applyEdgeEffects = true // Set to false for full-screen surfaces
+)
+```
+
+### Technical Details & Parameters
+
+1. **Backdrop Resolution Scaling:** To maintain high performance, the glass surface records and processes its backdrop at a lower resolution (down to `33%`), relying on the blur to hide the upscaling. The `glassResolutionScale` function dynamically adjusts this based on the requested blur radius.
+2. **API Requirements:** Glass requires Android 12 (`Build.VERSION_CODES.S`). Devices on older versions gracefully fall back to solid/standard transparency by checking `isGlassSupported()`.
+3. **Lens Refraction (Edge Effects):** Small pills (like floating bottom bars) read as physical glass by applying edge effects. These include lens refraction (`lensHeight`, `lensAmount`), a specular highlight rim (`Highlight.Default`), and a drop shadow (`Shadow.Default`). **Note:** These are enabled via `applyEdgeEffects = true` and rely on `CornerBasedShape`s. (Using a non-corner-based shape throws `UnsupportedOperationException`).
+4. **Full-Screen Blur Tuning:** For large surfaces like the full-screen player background, edge effects should be disabled (`applyEdgeEffects = false`) to avoid a stray band of light. Instead, they use a `PLAYER_BLUR_MULTIPLIER` (4x the standard pill blur) to match the deep-blurred material seen in Apple Music.
+
+### Color and Vibrancy
+*   **Vibrancy:** Configurable saturation multiplier (default `1.5x` saturation) applies directly via `colorControls` RenderEffect.
+*   **Surface Tint:** Apple's glass is typically a light material on light content and dark on dark. If `surfaceTintColor` is unspecified, it defaults to `0xFFFAFAFA` for light mode and `0xFF121212` for dark mode, layered with a typical `surfaceOpacity` of `0.4f`.
 *   **Flat Integration:** Action buttons (like FABs or overflow menus) placed on top of Liquid Glass surfaces must use flat elevations (`elevation = 0.dp`). M3 drop shadows interact poorly with translucent layers and will render as ugly dark blobs beneath the component.
 
 ---
