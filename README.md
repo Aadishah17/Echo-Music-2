@@ -1,12 +1,6 @@
 <div align="center">
-  <img src="assets/Echo-new.png" alt="Echo Music Logo" width="120"/>
-
-  <h1>Echo Music</h1>
-
-  <p><b>A modern Android music app with ad-free streaming, synced lyrics, offline playback, and an intuitive user experience.</b></p>
+  <img src="assets/banner.png" alt="Echo Music Logo" />
 </div>
-
----
 
 ## Overview
 
