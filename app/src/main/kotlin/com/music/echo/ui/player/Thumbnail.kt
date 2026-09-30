@@ -1,4 +1,8 @@
 package echo.music.iad1tya.ui.player
+import java.io.File
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.decodeFromString
+
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
@@ -681,6 +685,18 @@ private fun ThumbnailItem(
           CanvasArtworkPlaybackCache.get(item.mediaId)?.let { cached ->
             canvasArtwork = cached
             return@LaunchedEffect
+          }
+          
+          try {
+              val file = File(context.filesDir, "canvas_${item.mediaId}.json")
+              if (file.exists()) {
+                  val cached = Json.decodeFromString<CanvasArtwork>(file.readText())
+                  CanvasArtworkPlaybackCache.put(item.mediaId, cached)
+                  canvasArtwork = cached
+                  return@LaunchedEffect
+              }
+          } catch (e: Exception) {
+              e.printStackTrace()
           }
 
           if (canvasFetchInFlight) return@LaunchedEffect
