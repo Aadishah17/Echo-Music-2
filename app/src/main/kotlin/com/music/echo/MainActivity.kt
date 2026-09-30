@@ -333,7 +333,6 @@ class MainActivity : ComponentActivity() {
         isFinishing
     ) {
       stopService(Intent(this, MusicService::class.java))
-      unbindService(serviceConnection)
       playerConnection = null
     }
   }
