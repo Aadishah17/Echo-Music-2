@@ -19,6 +19,7 @@ import com.music.innertube.models.SongItem
 import com.music.innertube.models.WatchEndpoint
 import com.music.innertube.models.WatchEndpoint.WatchEndpointMusicSupportedConfigs.WatchEndpointMusicConfig.Companion.MUSIC_VIDEO_TYPE_ATV
 import com.music.innertube.models.YTItem
+import com.music.innertube.models.filterBlockedArtists
 import com.music.innertube.models.YouTubeClient
 import com.music.innertube.models.YouTubeClient.Companion.WEB
 import com.music.innertube.models.YouTubeClient.Companion.WEB_REMIX
@@ -80,6 +81,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * [ViMusic](https://github.com/vfsfitvnm/ViMusic)
  */
 object YouTube {
+  var blockedArtists: Set<String> = emptySet()
   private val innerTube = InnerTube()
 
   var locale: YouTubeLocale
@@ -162,7 +164,7 @@ object YouTube {
               SearchSuggestionPage.fromMusicResponsiveListItemRenderer(renderer)
             }
           }
-          .orEmpty()
+          .orEmpty().filterBlockedArtists()
     )
   }
 
@@ -252,7 +254,7 @@ object YouTube {
       groupedSummaries.add(SearchSummary(title = "Playlists", items = flatPlaylists))
     }
 
-    SearchSummaryPage(summaries = shelfSummaries + groupedSummaries)
+    SearchSummaryPage(summaries = shelfSummaries + groupedSummaries).filterBlockedArtists()
   }
 
   suspend fun search(query: String, filter: SearchFilter): Result<SearchResult> = runCatching {
@@ -270,7 +272,7 @@ object YouTube {
         ?.firstOrNull()
     SearchResult(
       items =
-        musicShelfRenderer?.contents?.getItems()?.mapNotNull { SearchPage.toYTItem(it) }.orEmpty(),
+        musicShelfRenderer?.contents?.getItems()?.mapNotNull { SearchPage.toYTItem(it) }.orEmpty().filterBlockedArtists(),
       continuation = musicShelfRenderer?.continuations?.getContinuation()
     )
   }
@@ -282,7 +284,7 @@ object YouTube {
         SearchPage.toYTItem(it.musicResponsiveListItemRenderer)
       } ?: emptyList()
     SearchResult(
-      items = items,
+      items = items.filterBlockedArtists(),
       continuation =
         if (items.isEmpty()) null
         else response.continuationContents?.musicShelfContinuation?.continuations?.getContinuation()
@@ -1058,7 +1060,7 @@ object YouTube {
         sectionListRender?.header?.chipCloudRenderer?.chips?.mapNotNull {
           HomePage.Chip.fromChipCloudChipRenderer(it)
         }
-      HomePage(chips, sections, continuation)
+      HomePage(chips, sections, continuation).filterBlockedArtists()
     }
 
   private suspend fun homeContinuation(continuation: String): Result<HomePage> = runCatching {
@@ -1838,7 +1840,7 @@ object YouTube {
         }
       NextResult(
         title = title,
-        items = songs,
+        items = songs.filterBlockedArtists(),
         currentIndex = currentIndex,
         lyricsEndpoint =
           response.contents.singleColumnMusicWatchNextResultsRenderer

@@ -42,6 +42,7 @@ import echo.music.iad1tya.ui.screens.recognition.RecognitionHistoryScreen
 import echo.music.iad1tya.ui.screens.recognition.RecognitionScreen
 import echo.music.iad1tya.ui.screens.search.OnlineSearchResult
 import echo.music.iad1tya.ui.screens.search.SearchScreen
+import echo.music.iad1tya.ui.screens.settings.BlockedArtistsScreen
 import echo.music.iad1tya.ui.screens.settings.AboutScreen
 import echo.music.iad1tya.ui.screens.settings.AccountSettingsScreen
 import echo.music.iad1tya.ui.screens.settings.AiSettings
@@ -281,6 +282,7 @@ fun NavGraphBuilder.navigationBuilder(
   }
 
   composable("settings") { SettingsScreen(navController, scrollBehavior) }
+    composable("blocked_artists") { BlockedArtistsScreen(navController) }
 
   composable(
     route = "settings/update?highlightKey={highlightKey}",

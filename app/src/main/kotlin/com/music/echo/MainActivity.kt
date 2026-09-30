@@ -706,6 +706,8 @@ class MainActivity : ComponentActivity() {
         val bottomInsetDp = WindowInsets.systemBars.asPaddingValues().calculateBottomPadding()
 
         val navController = rememberNavController()
+        val blockedArtists by dataStore.data.map { it[BlockedArtistsKey] ?: emptySet() }.collectAsState(initial = emptySet())
+        LaunchedEffect(blockedArtists) { com.music.innertube.YouTube.blockedArtists = blockedArtists }
         val homeViewModel: HomeViewModel = hiltViewModel()
         val accountImageUrl by homeViewModel.accountImageUrl.collectAsState()
         val navBackStackEntry by navController.currentBackStackEntryAsState()
