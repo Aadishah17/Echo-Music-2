@@ -15,6 +15,14 @@ import android.view.View
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import nl.dionsegijn.konfetti.compose.KonfettiView
+import nl.dionsegijn.konfetti.core.Party
+import nl.dionsegijn.konfetti.core.Position
+import nl.dionsegijn.konfetti.core.emitter.Emitter
+import nl.dionsegijn.konfetti.core.models.Size
+import java.util.concurrent.TimeUnit
+import nl.dionsegijn.konfetti.compose.OnParticleSystemUpdateListener
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -1573,6 +1581,56 @@ class MainActivity : ComponentActivity() {
               onDismissRequest = {
                 showWelcomeDialog = false
                 setLastOpenedVersionCode(BuildConfig.VERSION_CODE)
+              }
+            )
+          }
+
+          var showPartyBomb by remember { 
+            val today = java.time.LocalDate.now()
+            mutableStateOf(today.month == java.time.Month.OCTOBER && today.dayOfMonth == 14) 
+          }
+          if (showPartyBomb) {
+            val parties = remember {
+              listOf(
+                Party(
+                  speed = 30f,
+                  maxSpeed = 70f,
+                  damping = 0.9f,
+                  angle = 270,
+                  spread = 60,
+                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
+                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
+                  position = Position.Relative(0.5, 1.0)
+                ),
+                Party(
+                  speed = 30f,
+                  maxSpeed = 70f,
+                  damping = 0.9f,
+                  angle = 315,
+                  spread = 45,
+                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
+                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
+                  position = Position.Relative(0.0, 1.0)
+                ),
+                Party(
+                  speed = 30f,
+                  maxSpeed = 70f,
+                  damping = 0.9f,
+                  angle = 225,
+                  spread = 45,
+                  colors = listOf(0xfce18a, 0xff726d, 0xf4306d, 0xb48def),
+                  emitter = Emitter(duration = 300, TimeUnit.MILLISECONDS).max(300),
+                  position = Position.Relative(1.0, 1.0)
+                )
+              )
+            }
+            KonfettiView(
+              modifier = Modifier.fillMaxSize(),
+              parties = parties,
+              updateListener = object : OnParticleSystemUpdateListener {
+                  override fun onParticleSystemEnded(system: nl.dionsegijn.konfetti.core.PartySystem, activeSystems: Int) {
+                      if (activeSystems == 0) showPartyBomb = false
+                  }
               }
             )
           }
