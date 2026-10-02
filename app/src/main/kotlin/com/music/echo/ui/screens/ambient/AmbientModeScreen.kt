@@ -72,6 +72,8 @@ fun AmbientModeScreen(navController: NavController) {
 
   val artScale by rememberPreference(AmbientArtScaleKey, 0.85f)
   val showArt by rememberPreference(AmbientShowArtKey, true)
+  val fullScreenArt by rememberPreference(AmbientFullScreenArtKey, false)
+
 
   val showTitle by rememberPreference(AmbientShowTitleKey, false)
   val showArtist by rememberPreference(AmbientShowArtistKey, false)
