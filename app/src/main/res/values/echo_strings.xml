@@ -732,6 +732,8 @@
     <string name="ai_provider">Provider</string>
     <string name="ai_base_url">Base URL</string>
     <string name="ai_api_key">API Key</string>
+    <string name="remove">Remove</string>
+    <string name="remove_api_key">Remove API key</string>
     <string name="ai_model">Model</string>
     <string name="ai_translation_mode">Translation Mode</string>
     <string name="ai_target_language">Target Language</string>
