@@ -545,6 +545,28 @@ fun PlayerMenu(
                 }
               )
             )
+
+            val currentIdx = playerConnection.player.currentMediaItemIndex
+            val hasUpcomingSongs =
+              currentIdx >= 0 && currentIdx < playerConnection.player.mediaItemCount - 1
+            if (!isListenTogetherGuest && hasUpcomingSongs) {
+              add(
+                Material3MenuItemData(
+                  title = { Text(text = stringResource(R.string.clear_queue)) },
+                  icon = {
+                    Icon(
+                      painter = painterResource(R.drawable.clear_all),
+                      contentDescription = null,
+                      modifier = Modifier.size(24.dp)
+                    )
+                  },
+                  onClick = {
+                    playerConnection.clearQueue()
+                    onDismiss()
+                  }
+                )
+              )
+            }
           }
       )
     }

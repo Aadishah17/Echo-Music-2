@@ -1870,6 +1870,73 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     automixItems.value = emptyList()
   }
 
+  data class ClearedQueueState(
+    val removedItems: List<MediaItem>,
+    val startIndex: Int,
+    val previousQueue: Queue,
+    val previousQueueTitle: String?,
+  )
+
+  fun clearQueue(): ClearedQueueState? {
+    if (!playerInitialized.value) return null
+    val currentIndex = player.currentMediaItemIndex
+    if (currentIndex == C.INDEX_UNSET) return null
+
+    val itemCount = player.mediaItemCount
+    if (itemCount <= currentIndex + 1) return null
+
+    val removedItems = mutableListOf<MediaItem>()
+    for (i in (currentIndex + 1) until itemCount) {
+      removedItems.add(player.getMediaItemAt(i))
+    }
+
+    val prevQueue = currentQueue
+    val prevQueueTitle = queueTitle
+
+    player.removeMediaItems(currentIndex + 1, itemCount)
+    currentQueue = EmptyQueue
+    originalQueueSize = player.mediaItemCount
+
+    if (player.shuffleModeEnabled) {
+      val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
+      applyShuffleOrder(player.currentMediaItemIndex, player.mediaItemCount, shufflePlaylistFirst)
+    }
+
+    resyncCastQueueIfCasting()
+
+    if (dataStore.get(PersistentQueueKey, true)) {
+      saveQueueToDisk()
+    }
+
+    return ClearedQueueState(
+      removedItems = removedItems,
+      startIndex = currentIndex + 1,
+      previousQueue = prevQueue,
+      previousQueueTitle = prevQueueTitle,
+    )
+  }
+
+  fun restoreQueue(state: ClearedQueueState) {
+    if (!playerInitialized.value || state.removedItems.isEmpty()) return
+
+    val insertIndex = state.startIndex.coerceAtMost(player.mediaItemCount)
+    player.addMediaItems(insertIndex, state.removedItems)
+    currentQueue = state.previousQueue
+    queueTitle = state.previousQueueTitle
+    originalQueueSize = player.mediaItemCount
+
+    if (player.shuffleModeEnabled) {
+      val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
+      applyShuffleOrder(player.currentMediaItemIndex, player.mediaItemCount, shufflePlaylistFirst)
+    }
+
+    resyncCastQueueIfCasting()
+
+    if (dataStore.get(PersistentQueueKey, true)) {
+      saveQueueToDisk()
+    }
+  }
+
   fun playNext(items: List<MediaItem>) {
     val isCasting = castConnectionHandler?.isCasting?.value == true
     Timber.d(
