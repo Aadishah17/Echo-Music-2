@@ -64,7 +64,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
@@ -80,6 +82,7 @@ import echo.music.iad1tya.constants.ExportDirectoryUriKey
 import echo.music.iad1tya.constants.ExportedSongIdsKey
 import echo.music.iad1tya.constants.ExportingSongIdsKey
 import echo.music.iad1tya.constants.ListItemHeight
+import echo.music.iad1tya.constants.QueueEditLockKey
 import echo.music.iad1tya.constants.ShowLyricsOnPlayerKey
 import echo.music.iad1tya.listentogether.ConnectionState
 import echo.music.iad1tya.listentogether.ListenTogetherEvent
@@ -104,6 +107,8 @@ fun PlayerMenu(
   navController: NavController,
   playerBottomSheetState: BottomSheetState,
   isQueueTrigger: Boolean? = false,
+  isQueueLocked: Boolean? = null,
+  inSelectMode: Boolean = false,
   onShowDetailsDialog: () -> Unit,
   onDismiss: () -> Unit,
 ) {
@@ -546,10 +551,22 @@ fun PlayerMenu(
               )
             )
 
+            val (queueLockedPref) = rememberPreference(QueueEditLockKey, defaultValue = false)
+            val effectiveQueueLocked = isQueueLocked ?: queueLockedPref
+
+            val timeline = playerConnection.player.currentTimeline
             val currentIdx = playerConnection.player.currentMediaItemIndex
             val hasUpcomingSongs =
-              currentIdx >= 0 && currentIdx < playerConnection.player.mediaItemCount - 1
-            if (!isListenTogetherGuest && hasUpcomingSongs) {
+              !timeline.isEmpty &&
+                currentIdx != C.INDEX_UNSET &&
+                timeline.getNextWindowIndex(
+                  currentIdx,
+                  Player.REPEAT_MODE_OFF,
+                  playerConnection.player.shuffleModeEnabled
+                ) != C.INDEX_UNSET
+            if (
+              !isListenTogetherGuest && !effectiveQueueLocked && !inSelectMode && hasUpcomingSongs
+            ) {
               add(
                 Material3MenuItemData(
                   title = { Text(text = stringResource(R.string.clear_queue)) },

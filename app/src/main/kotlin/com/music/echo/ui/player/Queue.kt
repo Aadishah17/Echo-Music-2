@@ -461,6 +461,8 @@ fun Queue(
                     mediaMetadata = mediaMetadata,
                     navController = navController,
                     playerBottomSheetState = playerBottomSheetState,
+                    isQueueLocked = locked,
+                    inSelectMode = inSelectMode,
                     onShowDetailsDialog = {
                       mediaMetadata?.id?.let { bottomSheetPageState.show { ShowMediaInfo(it) } }
                     },
@@ -834,6 +836,8 @@ fun Queue(
                     mediaMetadata = mediaMetadata,
                     navController = navController,
                     playerBottomSheetState = playerBottomSheetState,
+                    isQueueLocked = locked,
+                    inSelectMode = inSelectMode,
                     onShowDetailsDialog = {
                       mediaMetadata?.id?.let { bottomSheetPageState.show { ShowMediaInfo(it) } }
                     },
