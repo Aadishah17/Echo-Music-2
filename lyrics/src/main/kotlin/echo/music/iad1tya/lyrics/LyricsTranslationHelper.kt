@@ -54,6 +54,7 @@ object LyricsTranslationHelper {
   val translationSaved: SharedFlow<Unit> = _translationSaved.asSharedFlow()
 
   private var translationJob: Job? = null
+  private var statusResetJob: Job? = null
   private var isCompositionActive = true
 
   private val translationCache = mutableMapOf<String, List<String>>()
@@ -151,6 +152,8 @@ object LyricsTranslationHelper {
     )
 
   fun resetStatus() {
+    statusResetJob?.cancel()
+    statusResetJob = null
     _status.value = TranslationStatus.Idle
   }
 
@@ -163,6 +166,8 @@ object LyricsTranslationHelper {
   }
 
   fun cancelTranslation() {
+    statusResetJob?.cancel()
+    statusResetJob = null
     translationJob?.cancel()
     translationJob = null
     _status.value = TranslationStatus.Idle
@@ -170,13 +175,16 @@ object LyricsTranslationHelper {
 
   private fun setErrorStatus(scope: CoroutineScope, message: String) {
     if (!isCompositionActive) return
-    _status.value = TranslationStatus.Error(message)
-    scope.launch {
-      delay(3000)
-      if (_status.value is TranslationStatus.Error && isCompositionActive) {
-        _status.value = TranslationStatus.Idle
+    statusResetJob?.cancel()
+    val errorStatus = TranslationStatus.Error(message)
+    _status.value = errorStatus
+    statusResetJob =
+      scope.launch {
+        delay(3000)
+        if (_status.value == errorStatus && isCompositionActive) {
+          _status.value = TranslationStatus.Idle
+        }
       }
-    }
   }
 
   fun loadTranslationsFromDatabase(
@@ -235,6 +243,8 @@ object LyricsTranslationHelper {
     songId: String = "",
     database: MusicDatabase? = null,
   ) {
+    statusResetJob?.cancel()
+    statusResetJob = null
     translationJob?.cancel()
     _status.value = TranslationStatus.Translating()
 
