@@ -320,6 +320,7 @@ fun AiSettings(
       title = { Text(stringResource(R.string.ai_api_key)) },
       icon = { Icon(painterResource(R.drawable.key), null) },
       initialTextFieldValue = TextFieldValue(text = openRouterApiKey),
+      isInputValid = { true },
       onDone = {
         openRouterApiKey = it
         showApiKeyDialog = false
@@ -333,6 +334,7 @@ fun AiSettings(
       title = { Text("DeepL ${stringResource(R.string.ai_api_key)}") },
       icon = { Icon(painterResource(R.drawable.key), null) },
       initialTextFieldValue = TextFieldValue(text = deeplApiKey),
+      isInputValid = { true },
       onDone = {
         deeplApiKey = it
         showDeeplApiKeyDialog = false
