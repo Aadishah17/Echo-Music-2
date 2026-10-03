@@ -163,6 +163,8 @@
     <string name="density_restart_message">The display density change will take effect after restarting the app. Do you want to restart now?</string>
     <string name="enable_wavy_slider">Enable wavy slider</string>
     <string name="wavy">Wavy</string>
+    <string name="wavy_play_pause">Wavy Play/Pause Button</string>
+    <string name="wavy_play_pause_desc">Use a wavy animation for the play/pause button instead of a circle</string>
     <string name="enable_swipe_thumbnail">Enable swipe to change song</string>
     <string name="swipe_song_to_add">Swipe song to the left to add it to the queue or to the right to play it next</string>
     <string name="swipe_song_to_remove">Swipe song to remove it from the playlist</string>

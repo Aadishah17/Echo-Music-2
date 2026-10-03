@@ -1182,16 +1182,12 @@ fun HomeScreen(
                     val heroWidth = configuration.screenWidthDp.dp - 32.dp
 
                     val carouselState = rememberCarouselState { distinctQuickPicks.size }
-                    var autoScrollIndex by remember {
-                      androidx.compose.runtime.mutableIntStateOf(0)
-                    }
-
                     LaunchedEffect(carouselState) {
                       while (true) {
                         kotlinx.coroutines.delay(5000)
                         if (distinctQuickPicks.isNotEmpty() && !carouselState.isScrollInProgress) {
-                          autoScrollIndex = (autoScrollIndex + 1) % distinctQuickPicks.size
-                          carouselState.animateScrollToItem(autoScrollIndex)
+                          val nextIndex = (carouselState.currentItem + 1) % distinctQuickPicks.size
+                          carouselState.animateScrollToItem(nextIndex)
                         }
                       }
                     }

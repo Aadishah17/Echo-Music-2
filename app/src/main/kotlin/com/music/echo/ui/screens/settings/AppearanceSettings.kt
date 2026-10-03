@@ -101,6 +101,7 @@ import echo.music.iad1tya.constants.ShowTopPlaylistKey
 import echo.music.iad1tya.constants.SliderStyle
 import echo.music.iad1tya.constants.SliderStyleKey
 import echo.music.iad1tya.constants.SquigglySliderKey
+import echo.music.iad1tya.constants.WavyPlayPauseKey
 import echo.music.iad1tya.constants.SwipeLyricsKey
 import echo.music.iad1tya.constants.SwipeSensitivityKey
 import echo.music.iad1tya.constants.SwipeThumbnailKey
@@ -232,6 +233,8 @@ fun AppearanceSettings(
     rememberEnumPreference(SliderStyleKey, defaultValue = SliderStyle.SLIM)
   val (squigglySlider, onSquigglySliderChange) =
     rememberPreference(SquigglySliderKey, defaultValue = false)
+  val (wavyPlayPause, onWavyPlayPauseChange) =
+    rememberPreference(WavyPlayPauseKey, defaultValue = true)
   val (swipeThumbnail, onSwipeThumbnailChange) =
     rememberPreference(SwipeThumbnailKey, defaultValue = true)
   val (swipeSensitivity, onSwipeSensitivityChange) =
@@ -1218,6 +1221,29 @@ fun AppearanceSettings(
               )
             },
             onClick = { showSliderOptionDialog = true }
+          ),
+          Material3SettingsItem(
+            isHighlighted = (highlightKey == stringResource(R.string.wavy_play_pause)),
+            icon = painterResource(R.drawable.play),
+            title = { Text(stringResource(R.string.wavy_play_pause)) },
+            description = { Text(stringResource(R.string.wavy_play_pause_desc)) },
+            trailingContent = {
+              Switch(
+                checked = wavyPlayPause,
+                onCheckedChange = onWavyPlayPauseChange,
+                thumbContent = {
+                  Icon(
+                    painter =
+                      painterResource(
+                        if (wavyPlayPause) R.drawable.check else R.drawable.close
+                      ),
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                  )
+                }
+              )
+            },
+            onClick = { onWavyPlayPauseChange(!wavyPlayPause) }
           ),
           Material3SettingsItem(
             isHighlighted = (highlightKey == stringResource(R.string.enable_swipe_thumbnail)),
