@@ -26,15 +26,15 @@ if (hasGoogleServicesConfig) {
 
 android {
   namespace = "echo.music.iad1tya"
-  compileSdk = 36
+  compileSdk = 37
   ndkVersion = "27.0.12077973"
 
   defaultConfig {
     applicationId = "echo.music.iad1tya"
     minSdk = 26
     targetSdk = 36
-    versionCode = 159
-    versionName = "1.3.1"
+    versionCode = 161
+    versionName = "1.4"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
@@ -239,6 +239,8 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 }
 
 dependencies {
+  implementation("nl.dionsegijn:konfetti-compose:2.0.4")
+
   implementation(project(":core"))
   implementation(project(":playback"))
 
@@ -309,8 +311,12 @@ dependencies {
 
   implementation(libs.hilt)
   ksp(libs.hilt.compiler)
+  ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
+  annotationProcessor("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
 
   implementation(project(":innertube"))
+  implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
+
   implementation(project(":lyrics"))
   implementation(project(":kugou"))
   implementation(project(":lrclib"))

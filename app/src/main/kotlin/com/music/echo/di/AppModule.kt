@@ -3,7 +3,6 @@ package echo.music.iad1tya.di
 import android.content.Context
 import androidx.media3.database.DatabaseProvider
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.room.Room
@@ -111,7 +110,7 @@ object AppModule {
       context.filesDir.resolve("exoplayer"),
       when (cacheSize) {
         -1 -> NoOpCacheEvictor()
-        else -> LeastRecentlyUsedCacheEvictor(cacheSize * 1024 * 1024L)
+        else -> com.music.echo.playback.DynamicLruCacheEvictor(cacheSize * 1024 * 1024L)
       },
       databaseProvider,
     )
