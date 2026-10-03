@@ -59,6 +59,7 @@ import echo.music.iad1tya.LocalPlayerConnection
 import echo.music.iad1tya.constants.*
 import echo.music.iad1tya.extensions.togglePlayPause
 import echo.music.iad1tya.ui.player.InlineLyricsView
+import echo.music.iad1tya.ui.screens.ambient.AmbientCanvasBackground
 import echo.music.iad1tya.utils.rememberPreference
 import kotlin.math.abs
 
@@ -179,10 +180,7 @@ fun AmbientModeScreen(navController: NavController) {
           contentAlignment = if (showLyrics) Alignment.CenterEnd else Alignment.Center
         ) {
           Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            AsyncImage(
-              model = mediaMetadata?.thumbnailUrl,
-              contentDescription = "Album Art",
-              contentScale = ContentScale.Crop,
+            Box(
               modifier =
                 Modifier.fillMaxHeight(artScale)
                   .aspectRatio(1f)
@@ -190,7 +188,15 @@ fun AmbientModeScreen(navController: NavController) {
                   .pointerInput(Unit) {
                     detectTapGestures(onDoubleTap = { playerConnection.togglePlayPause() })
                   }
-            )
+            ) {
+              AsyncImage(
+                model = mediaMetadata?.thumbnailUrl,
+                contentDescription = "Album Art",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+              )
+              AmbientCanvasBackground(modifier = Modifier.fillMaxSize())
+            }
 
             if (showTitle || showArtist) {
               Spacer(modifier = Modifier.height(16.dp))
@@ -213,6 +219,7 @@ fun AmbientModeScreen(navController: NavController) {
                   overflow = TextOverflow.Ellipsis
                 )
               }
+>>>>>>> main
             }
           }
         }
