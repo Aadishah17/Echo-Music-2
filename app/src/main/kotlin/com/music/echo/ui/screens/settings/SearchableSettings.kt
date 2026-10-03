@@ -1727,6 +1727,12 @@ fun getAllSearchableSettings(): List<SearchableSetting> {
       "settings/appearance"
     ),
     SearchableSetting(
+      stringResource(R.string.wavy_play_pause),
+      stringResource(R.string.wavy_play_pause_desc),
+      "Appearance",
+      "settings/appearance"
+    ),
+    SearchableSetting(
       stringResource(R.string.yt_sync),
       stringResource(R.string.yt_sync_desc),
       "Account",
