@@ -1049,4 +1049,5 @@
     <string name="lossless_audio_warning">Lossless audio requires a fast connection. It may consume more data and battery. Continue?</string>
     <string name="legacy_icon">Legacy Icon</string>
     <string name="legacy_icon_desc">Revert the app icon back to the original legacy design</string>
+    <string name="clear_queue_confirm">Are you sure you want to clear upcoming songs from the queue?</string>
 </resources>

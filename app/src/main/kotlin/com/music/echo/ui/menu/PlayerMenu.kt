@@ -64,7 +64,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import androidx.media3.common.C
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.offline.Download
 import androidx.media3.exoplayer.offline.DownloadRequest
 import androidx.media3.exoplayer.offline.DownloadService
@@ -80,12 +82,14 @@ import echo.music.iad1tya.constants.ExportDirectoryUriKey
 import echo.music.iad1tya.constants.ExportedSongIdsKey
 import echo.music.iad1tya.constants.ExportingSongIdsKey
 import echo.music.iad1tya.constants.ListItemHeight
+import echo.music.iad1tya.constants.QueueEditLockKey
 import echo.music.iad1tya.constants.ShowLyricsOnPlayerKey
 import echo.music.iad1tya.listentogether.ConnectionState
 import echo.music.iad1tya.listentogether.ListenTogetherEvent
 import echo.music.iad1tya.models.MediaMetadata
 import echo.music.iad1tya.playback.ExoDownloadService
 import echo.music.iad1tya.ui.component.BottomSheetState
+import echo.music.iad1tya.ui.component.DefaultDialog
 import echo.music.iad1tya.ui.component.ListDialog
 import echo.music.iad1tya.ui.component.Material3MenuGroup
 import echo.music.iad1tya.ui.component.Material3MenuItemData
@@ -104,7 +108,10 @@ fun PlayerMenu(
   navController: NavController,
   playerBottomSheetState: BottomSheetState,
   isQueueTrigger: Boolean? = false,
+  isQueueLocked: Boolean? = null,
+  inSelectMode: Boolean = false,
   onShowDetailsDialog: () -> Unit,
+  onClearQueue: (() -> Unit)? = null,
   onDismiss: () -> Unit,
 ) {
   mediaMetadata ?: return
@@ -242,6 +249,41 @@ fun PlayerMenu(
         }
       }
     )
+  }
+
+  var showClearQueueDialog by rememberSaveable { mutableStateOf(false) }
+  if (showClearQueueDialog) {
+    DefaultDialog(
+      onDismiss = { showClearQueueDialog = false },
+      icon = {
+        Icon(
+          painter = painterResource(R.drawable.clear_all),
+          contentDescription = null,
+          modifier = Modifier.size(24.dp)
+        )
+      },
+      title = { Text(stringResource(R.string.clear_queue)) },
+      buttons = {
+        TextButton(onClick = { showClearQueueDialog = false }) {
+          Text(stringResource(R.string.cancel))
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(
+          onClick = {
+            showClearQueueDialog = false
+            onDismiss()
+            playerConnection.clearQueue()
+          }
+        ) {
+          Text(stringResource(R.string.clear))
+        }
+      }
+    ) {
+      Text(
+        text = stringResource(R.string.clear_queue_confirm),
+        style = MaterialTheme.typography.bodyMedium
+      )
+    }
   }
 
   var showListenTogetherDialog by rememberSaveable { mutableStateOf(false) }
@@ -545,6 +587,44 @@ fun PlayerMenu(
                 }
               )
             )
+
+            val (queueLockedPref) = rememberPreference(QueueEditLockKey, defaultValue = false)
+            val effectiveQueueLocked = isQueueLocked ?: queueLockedPref
+
+            val timeline = playerConnection.player.currentTimeline
+            val currentIdx = playerConnection.player.currentMediaItemIndex
+            val hasUpcomingSongs =
+              !timeline.isEmpty &&
+                currentIdx != C.INDEX_UNSET &&
+                timeline.getNextWindowIndex(
+                  currentIdx,
+                  Player.REPEAT_MODE_OFF,
+                  playerConnection.player.shuffleModeEnabled
+                ) != C.INDEX_UNSET
+            if (
+              !isListenTogetherGuest && !effectiveQueueLocked && !inSelectMode && hasUpcomingSongs
+            ) {
+              add(
+                Material3MenuItemData(
+                  title = { Text(text = stringResource(R.string.clear_queue)) },
+                  icon = {
+                    Icon(
+                      painter = painterResource(R.drawable.clear_all),
+                      contentDescription = null,
+                      modifier = Modifier.size(24.dp)
+                    )
+                  },
+                  onClick = {
+                    if (onClearQueue != null) {
+                      onClearQueue()
+                      onDismiss()
+                    } else {
+                      showClearQueueDialog = true
+                    }
+                  }
+                )
+              )
+            }
           }
       )
     }
