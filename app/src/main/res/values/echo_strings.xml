@@ -37,6 +37,8 @@
     <string name="liked">Liked</string>
     <string name="offline">Downloaded</string>
     <string name="my_top">My top</string>
+    <string name="my_bottom">My bottom</string>
+    <string name="bottom_playlist_description">%1$s is a playlist featuring your %2$d least played tracks. Keep listening to discover how your bottom songs evolve over time.</string>
     <string name="cached_playlist">Cached</string>
     <string name="uploaded_playlist">Uploaded</string>
     <string name="filter_uploaded">Uploaded</string>
@@ -179,6 +181,7 @@
     <string name="show_liked_playlist">Show \"Liked\" playlist</string>
     <string name="show_downloaded_playlist">Show \"Downloaded\" playlist</string>
     <string name="show_top_playlist">Show \"Top\" playlist</string>
+    <string name="show_bottom_playlist">Show \"Bottom\" playlist</string>
     <string name="show_cached_playlist">Show \"Cached\" playlist</string>
     <string name="show_uploaded_playlist">Show \"Uploaded\" playlist</string>
     <string name="shuffle_playlist_first">Shuffle playlist/album first</string>
@@ -1001,6 +1004,13 @@
     <string name="local_songs_scan_folders_desc">Skip songs stored in folders that match any of these paths.</string>
     <string name="local_songs_scan_folders_add">Add folder</string>
     <string name="local_songs_scan_folders_empty">No folders excluded yet.</string>
+    <string name="local_songs_folder_filter_mode_title">Folder filter mode</string>
+    <string name="local_songs_folder_filter_mode_desc">Scan everything and exclude folders, or only scan selected music folders.</string>
+    <string name="local_songs_folder_filter_exclude">Exclude folders</string>
+    <string name="local_songs_folder_filter_include">Include only</string>
+    <string name="local_songs_scan_included_folders_title">Included music folders</string>
+    <string name="local_songs_scan_included_folders_desc">Only songs in these folders will be scanned into your local library.</string>
+    <string name="local_songs_scan_included_folders_empty">No folders selected yet. Add folders (e.g. Music, Audio) to scan.</string>
     <string name="allow">Allow</string>
     <string name="permission_storage_title">Storage access</string>
     <string name="permission_storage_desc">Required to read your downloaded and local audio files for playback.</string>

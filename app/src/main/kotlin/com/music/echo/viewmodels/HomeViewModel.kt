@@ -63,6 +63,7 @@ data class DailyDiscoverItem(
 
 data class CommunityPlaylistItem(val playlist: PlaylistItem, val songs: List<SongItem>)
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class HomeViewModel
 @Inject
@@ -344,7 +345,16 @@ constructor(
         val combined =
           (relatedSongs + forgotten + ytSimilarSongs).distinctBy { it.id }.shuffled().take(20)
 
-        quickPicks.value = combined.ifEmpty { relatedSongs.shuffled().take(20) }
+        quickPicks.value =
+          combined
+            .ifEmpty { relatedSongs.shuffled().take(20) }
+            .ifEmpty {
+              database
+                .songs(echo.music.iad1tya.constants.SongSortType.CREATE_DATE, true)
+                .first()
+                .shuffled()
+                .take(20)
+            }
       }
       QuickPicks.LAST_LISTEN -> {
         val song = database.events().first().firstOrNull()?.song
@@ -356,6 +366,16 @@ constructor(
               .filterVideoSongs(hideVideoSongs)
               .shuffled()
               .take(20)
+        } else {
+          val fallbackSongs = database.quickPicks().first().filterVideoSongs(hideVideoSongs)
+          quickPicks.value =
+            fallbackSongs.shuffled().take(20).ifEmpty {
+              database
+                .songs(echo.music.iad1tya.constants.SongSortType.CREATE_DATE, true)
+                .first()
+                .shuffled()
+                .take(20)
+            }
         }
       }
     }
@@ -699,7 +719,10 @@ constructor(
       val hideExplicit = context.dataStore.get(HideExplicitKey, false)
       val hideVideoSongs = context.dataStore.get(HideVideoSongsKey, false)
       val hideYoutubeShorts = context.dataStore.get(HideYoutubeShortsKey, false)
-      val nextSections = YouTube.home(params = chip.endpoint?.params).getOrNull() ?: return@launch
+      val browseId = chip.endpoint?.browseId ?: "FEmusic_home"
+      val nextSections =
+        YouTube.home(browseId = browseId, params = chip.endpoint?.params).getOrNull()
+          ?: return@launch
 
       homePage.value =
         nextSections.copy(

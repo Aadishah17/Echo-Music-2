@@ -115,6 +115,7 @@ enum class DownloadQuality {
 }
 
 val DownloadOnWifiOnlyKey = booleanPreferencesKey("downloadOnWifiOnly")
+val DownloadWithMetadataKey = booleanPreferencesKey("downloadWithMetadata")
 
 val AudioOffload = booleanPreferencesKey("enableOffload")
 
@@ -220,6 +221,8 @@ val MixSortDescendingKey = booleanPreferencesKey("albumSortDescending")
 
 val LocalSongsMinDurationSecondsKey = intPreferencesKey("local_songs_min_duration_seconds")
 val LocalSongsExcludedFoldersKey = stringSetPreferencesKey("local_songs_excluded_folders")
+val LocalSongsIncludedFoldersKey = stringSetPreferencesKey("local_songs_included_folders")
+val LocalSongsFolderFilterModeKey = stringPreferencesKey("local_songs_folder_filter_mode")
 val LocalStorageDirsKey = stringSetPreferencesKey("local_storage_dirs")
 val DiscordTokenKey = stringPreferencesKey("discord_token")
 val DiscordRefreshTokenKey = stringPreferencesKey("discord_refresh_token")
@@ -280,6 +283,7 @@ val ShowLikedPlaylistKey = booleanPreferencesKey("show_liked_playlist")
 val ShowDownloadedPlaylistKey = booleanPreferencesKey("show_downloaded_playlist")
 val ShowExportedPlaylistKey = booleanPreferencesKey("show_exported_playlist")
 val ShowTopPlaylistKey = booleanPreferencesKey("show_top_playlist")
+val ShowBottomPlaylistKey = booleanPreferencesKey("show_bottom_playlist")
 val ShowCachedPlaylistKey = booleanPreferencesKey("show_cached_playlist")
 val ShowUploadedPlaylistKey = booleanPreferencesKey("show_uploaded_playlist")
 val EnablePlayerSwipeKey = booleanPreferencesKey("enable_player_swipe")
@@ -426,6 +430,7 @@ enum class PlayerBackgroundStyle {
   GLOW_ANIMATED,
   APPLE_MUSIC,
   LIVE_MESH,
+  LIQUID_GLASS,
 }
 
 val TopSize = stringPreferencesKey("topSize")
@@ -768,10 +773,56 @@ val LrcLibLyricsEnabledKey = booleanPreferencesKey("lrclib_lyrics_enabled")
 val KuGouLyricsEnabledKey = booleanPreferencesKey("kugou_lyrics_enabled")
 val UnisonLyricsEnabledKey = booleanPreferencesKey("unison_lyrics_enabled")
 val YouTubeSubtitleLyricsEnabledKey = booleanPreferencesKey("youtube_subtitle_lyrics_enabled")
+val EnableCronetKey = booleanPreferencesKey("enable_cronet_http3")
+val ForceOpusKey = booleanPreferencesKey("force_opus_audio")
 val PreloadNextSongEnabledKey = booleanPreferencesKey("preload_next_song_enabled")
 val PreloadNextSongLimitKey = intPreferencesKey("preload_next_song_limit")
 val PreloadLyricsEnabledKey = booleanPreferencesKey("preload_lyrics_enabled")
 
+val LiquidGlassGlobalEnabledKey = booleanPreferencesKey("liquidGlassGlobalEnabled")
+val LiquidGlassTextColorKey = intPreferencesKey("liquidGlassTextColor")
+val LiquidGlassSurfaceTintColorKey = intPreferencesKey("liquidGlassSurfaceTintColor")
+val LiquidGlassSurfaceOpacityKey = floatPreferencesKey("liquidGlassSurfaceOpacity")
+val LiquidGlassVibrancyKey = floatPreferencesKey("liquidGlassVibrancy")
+val LiquidGlassBlurRadiusKey = floatPreferencesKey("liquidGlassBlurRadius")
+val LiquidGlassLensHeightKey = floatPreferencesKey("liquidGlassLensHeight")
+val LiquidGlassLensAmountKey = floatPreferencesKey("liquidGlassLensAmount")
+val LiquidGlassChromaticAberrationKey = booleanPreferencesKey("liquidGlassChromaticAberration")
+val LiquidGlassDepthEffectKey = booleanPreferencesKey("liquidGlassDepthEffect")
+val LiquidGlassPlayerEnabledKey = booleanPreferencesKey("liquidGlassPlayerEnabled")
+val LiquidGlassMiniPlayerEnabledKey = booleanPreferencesKey("liquidGlassMiniPlayerEnabled")
+val LiquidGlassNavBarEnabledKey = booleanPreferencesKey("liquidGlassNavBarEnabled")
+
 val UseFloatingNavBarKey = booleanPreferencesKey("useFloatingNavBar")
 val SavedAccountsKey = stringPreferencesKey("savedAccounts")
 val LiveBlurDensityKey = floatPreferencesKey("live_blur_density")
+
+// Ambient Mode
+val AmbientArtScaleKey = floatPreferencesKey("ambient_art_scale")
+val AmbientShowTitleKey = booleanPreferencesKey("ambient_show_title")
+val AmbientShowArtistKey = booleanPreferencesKey("ambient_show_artist")
+val AmbientShowLyricsKey = booleanPreferencesKey("ambient_show_lyrics")
+val AmbientShowArtKey = booleanPreferencesKey("ambient_show_art")
+val AmbientFullScreenArtKey = booleanPreferencesKey("ambient_full_screen_art")
+
+
+val AmbientSpacingKey = floatPreferencesKey("ambient_spacing")
+
+
+enum class AppFont(val value: String) {
+  SYSTEM("system"),
+  GOOGLE_SANS("google_sans"),
+  SANS_FLEX("sans_flex"),
+  OUTFIT("outfit"),
+  PLUS_JAKARTA_SANS("plus_jakarta_sans"),
+  CUSTOM("custom");
+
+  companion object {
+    fun fromValue(value: String): AppFont = entries.find { it.value == value } ?: SYSTEM
+  }
+}
+
+val SelectedFontKey = stringPreferencesKey("selected_app_font")
+val CustomFontPathKey = androidx.datastore.preferences.core.stringPreferencesKey("custom_font_path")
+val BlockedArtistsKey =
+  androidx.datastore.preferences.core.stringSetPreferencesKey("blockedArtists")
