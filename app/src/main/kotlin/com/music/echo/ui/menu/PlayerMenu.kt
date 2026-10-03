@@ -864,56 +864,93 @@ fun TempoPitchDialog(onDismiss: () -> Unit) {
   val listenTogetherManager = echo.music.iad1tya.LocalListenTogetherManager.current
   val isInRoom = listenTogetherManager?.isInRoom ?: false
 
-  AlertDialog(
-    properties = DialogProperties(usePlatformDefaultWidth = false),
-    onDismissRequest = onDismiss,
-    title = { Text(stringResource(R.string.tempo_and_pitch)) },
-    dismissButton = {
-      TextButton(
-        onClick = {
-          tempo = 1f
-          transposeValue = 0
-          updatePlaybackParameters()
-        },
+  androidx.compose.ui.window.Dialog(
+    properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+    onDismissRequest = onDismiss
+  ) {
+    androidx.compose.material3.Card(
+      modifier = Modifier.fillMaxWidth().padding(24.dp),
+      shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+      colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface),
+      elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+      Column(
+        modifier = Modifier.padding(24.dp)
       ) {
-        Text(stringResource(R.string.reset))
-      }
-    },
-    confirmButton = {
-      TextButton(
-        onClick = onDismiss,
-      ) {
-        Text(stringResource(android.R.string.ok))
-      }
-    },
-    text = {
-      Column {
-        if (!isInRoom) {
-          ValueAdjuster(
-            icon = R.drawable.speed,
-            currentValue = tempo,
-            values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
-            onValueUpdate = {
-              tempo = it
-              updatePlaybackParameters()
-            },
-            valueText = { "x$it" },
-            modifier = Modifier.padding(bottom = 12.dp),
-          )
-        }
-        ValueAdjuster(
-          icon = R.drawable.discover_tune,
-          currentValue = transposeValue,
-          values = (-12..12).toList(),
-          onValueUpdate = {
-            transposeValue = it
-            updatePlaybackParameters()
-          },
-          valueText = { "${if (it > 0) "+" else ""}$it" },
+        Text(
+          text = stringResource(R.string.tempo_and_pitch),
+          style = androidx.compose.material3.MaterialTheme.typography.headlineSmall,
+          fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+          color = androidx.compose.material3.MaterialTheme.colorScheme.onSurface,
+          modifier = Modifier.padding(bottom = 24.dp)
         )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+          if (!isInRoom) {
+            androidx.compose.material3.Card(
+              shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+              colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh),
+              elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Box(modifier = Modifier.padding(vertical = 12.dp)) {
+                ValueAdjuster(
+                  icon = R.drawable.speed,
+                  currentValue = tempo,
+                  values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
+                  onValueUpdate = {
+                    tempo = it
+                    updatePlaybackParameters()
+                  },
+                  valueText = { "x$it" }
+                )
+              }
+            }
+          }
+          androidx.compose.material3.Card(
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+            colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh),
+            elevation = androidx.compose.material3.CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Box(modifier = Modifier.padding(vertical = 12.dp)) {
+              ValueAdjuster(
+                icon = R.drawable.discover_tune,
+                currentValue = transposeValue,
+                values = (-12..12).toList(),
+                onValueUpdate = {
+                  transposeValue = it
+                  updatePlaybackParameters()
+                },
+                valueText = { "${if (it > 0) "+" else ""}$it" }
+              )
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.End
+        ) {
+          TextButton(
+            onClick = {
+              tempo = 1f
+              transposeValue = 0
+              updatePlaybackParameters()
+            }
+          ) {
+            Text(stringResource(R.string.reset))
+          }
+          Spacer(modifier = Modifier.width(8.dp))
+          TextButton(onClick = onDismiss) {
+            Text(stringResource(android.R.string.ok))
+          }
+        }
       }
-    },
-  )
+    }
+  }
 }
 
 @Composable
@@ -926,15 +963,17 @@ fun <T> ValueAdjuster(
   modifier: Modifier = Modifier,
 ) {
   Row(
-    horizontalArrangement = Arrangement.spacedBy(24.dp),
+    horizontalArrangement = Arrangement.spacedBy(8.dp),
     verticalAlignment = Alignment.CenterVertically,
-    modifier = modifier,
+    modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
   ) {
     Icon(
       painter = painterResource(icon),
       contentDescription = null,
       modifier = Modifier.size(28.dp),
     )
+
+    Spacer(modifier = Modifier.weight(1f))
 
     IconButton(
       enabled = currentValue != values.first(),
