@@ -20,6 +20,8 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
 
+          operations-per-run: 100
+
           days-before-issue-stale: 10
 
           days-before-issue-close: 10
