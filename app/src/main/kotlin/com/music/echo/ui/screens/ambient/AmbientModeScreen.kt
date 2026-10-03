@@ -219,7 +219,6 @@ fun AmbientModeScreen(navController: NavController) {
                   overflow = TextOverflow.Ellipsis
                 )
               }
->>>>>>> main
             }
           }
         }
