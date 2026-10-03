@@ -89,6 +89,7 @@ import echo.music.iad1tya.listentogether.ListenTogetherEvent
 import echo.music.iad1tya.models.MediaMetadata
 import echo.music.iad1tya.playback.ExoDownloadService
 import echo.music.iad1tya.ui.component.BottomSheetState
+import echo.music.iad1tya.ui.component.DefaultDialog
 import echo.music.iad1tya.ui.component.ListDialog
 import echo.music.iad1tya.ui.component.Material3MenuGroup
 import echo.music.iad1tya.ui.component.Material3MenuItemData
@@ -110,6 +111,7 @@ fun PlayerMenu(
   isQueueLocked: Boolean? = null,
   inSelectMode: Boolean = false,
   onShowDetailsDialog: () -> Unit,
+  onClearQueue: (() -> Unit)? = null,
   onDismiss: () -> Unit,
 ) {
   mediaMetadata ?: return
@@ -247,6 +249,41 @@ fun PlayerMenu(
         }
       }
     )
+  }
+
+  var showClearQueueDialog by rememberSaveable { mutableStateOf(false) }
+  if (showClearQueueDialog) {
+    DefaultDialog(
+      onDismiss = { showClearQueueDialog = false },
+      icon = {
+        Icon(
+          painter = painterResource(R.drawable.clear_all),
+          contentDescription = null,
+          modifier = Modifier.size(24.dp)
+        )
+      },
+      title = { Text(stringResource(R.string.clear_queue)) },
+      buttons = {
+        TextButton(onClick = { showClearQueueDialog = false }) {
+          Text(stringResource(R.string.cancel))
+        }
+        Spacer(Modifier.width(8.dp))
+        Button(
+          onClick = {
+            showClearQueueDialog = false
+            onDismiss()
+            playerConnection.clearQueue()
+          }
+        ) {
+          Text(stringResource(R.string.clear))
+        }
+      }
+    ) {
+      Text(
+        text = stringResource(R.string.clear_queue_confirm),
+        style = MaterialTheme.typography.bodyMedium
+      )
+    }
   }
 
   var showListenTogetherDialog by rememberSaveable { mutableStateOf(false) }
@@ -578,8 +615,12 @@ fun PlayerMenu(
                     )
                   },
                   onClick = {
-                    playerConnection.clearQueue()
-                    onDismiss()
+                    if (onClearQueue != null) {
+                      onClearQueue()
+                      onDismiss()
+                    } else {
+                      showClearQueueDialog = true
+                    }
                   }
                 )
               )

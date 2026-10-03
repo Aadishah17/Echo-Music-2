@@ -466,6 +466,7 @@ fun Queue(
                     onShowDetailsDialog = {
                       mediaMetadata?.id?.let { bottomSheetPageState.show { ShowMediaInfo(it) } }
                     },
+                    onClearQueue = { showClearQueueDialog = true },
                     onDismiss = menuState::dismiss
                   )
                 }
@@ -841,6 +842,7 @@ fun Queue(
                     onShowDetailsDialog = {
                       mediaMetadata?.id?.let { bottomSheetPageState.show { ShowMediaInfo(it) } }
                     },
+                    onClearQueue = { showClearQueueDialog = true },
                     onDismiss = menuState::dismiss
                   )
                 }
