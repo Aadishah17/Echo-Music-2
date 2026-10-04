@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/Echo-new.png" alt="Echo Music Logo" width="120"/>
+  <img src="assets/banner.png" alt="Echo Music Logo"/>
 
   <h1>Echo Music</h1>
 
