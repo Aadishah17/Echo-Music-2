@@ -305,6 +305,9 @@
     <string name="apple_music">Apple Music</string>
     <string name="squiggly">Squiggly</string>
     <string name="misc">Misc</string>
+    <string name="haptics">Haptics</string>
+    <string name="haptics_desc">Configure vibration and tactile feedback</string>
+
     <string name="enable_haptics">Enable haptics</string>
     <string name="enable_haptics_desc">Provide haptic feedback while scrolling, clicking, and interacting with the app</string>
     <string name="haptics_intensity">Haptic intensity</string>
