@@ -8,6 +8,7 @@ add_library(
     usbaudio_driver
     SHARED
     jni_bridge.cpp
+    spsc_ring_buffer.cpp
 )
 
 target_include_directories(

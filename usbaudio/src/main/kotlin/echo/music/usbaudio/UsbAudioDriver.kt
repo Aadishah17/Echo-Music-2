@@ -60,7 +60,47 @@ class UsbAudioDriver {
     fun getNativeDriverVersion(): String =
         if (nativeLoaded) nativeGetVersion() else DRIVER_VERSION
 
+    // ── Test & Ring Buffer hooks ─────────────────────────────────────────────
+
+    // In-memory queue fallback for JVM unit test execution when native library is not loaded
+    private val jvmTestBuffer = java.io.ByteArrayOutputStream()
+
+    fun testRingBufferWrite(data: ByteArray): Int {
+        return if (nativeLoaded) {
+            nativeTestRingBufferWrite(data)
+        } else {
+            jvmTestBuffer.write(data)
+            data.size
+        }
+    }
+
+    fun testRingBufferRead(size: Int): ByteArray {
+        return if (nativeLoaded) {
+            nativeTestRingBufferRead(size)
+        } else {
+            val all = jvmTestBuffer.toByteArray()
+            val toRead = kotlin.math.min(size, all.size)
+            val result = all.copyOfRange(0, toRead)
+            jvmTestBuffer.reset()
+            if (toRead < all.size) {
+                jvmTestBuffer.write(all, toRead, all.size - toRead)
+            }
+            result
+        }
+    }
+
+    fun testRingBufferFlush() {
+        if (nativeLoaded) {
+            nativeTestRingBufferFlush()
+        } else {
+            jvmTestBuffer.reset()
+        }
+    }
+
     // ── JNI declarations ─────────────────────────────────────────────────────
 
     private external fun nativeGetVersion(): String
+    private external fun nativeTestRingBufferWrite(data: ByteArray): Int
+    private external fun nativeTestRingBufferRead(size: Int): ByteArray
+    private external fun nativeTestRingBufferFlush()
 }
