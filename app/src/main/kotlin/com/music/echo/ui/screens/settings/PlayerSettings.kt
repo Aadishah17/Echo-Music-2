@@ -48,8 +48,10 @@ import echo.music.iad1tya.constants.CrossfadeGaplessKey
 import echo.music.iad1tya.constants.DisableLoadMoreWhenRepeatAllKey
 import echo.music.iad1tya.constants.DownloadOnWifiOnlyKey
 import echo.music.iad1tya.constants.DownloadWithMetadataKey
+import echo.music.iad1tya.constants.EnableBitPerfectUsbDacKey
 import echo.music.iad1tya.constants.EnableExportAsMp3Key
 import echo.music.iad1tya.constants.EnableGoogleCastKey
+import echo.music.iad1tya.constants.UsbDacVolumeModeKey
 import echo.music.iad1tya.constants.HistoryDuration
 import echo.music.iad1tya.constants.KeepScreenOn
 import echo.music.iad1tya.constants.PauseOnMute
@@ -118,6 +120,12 @@ fun PlayerSettings(
 
   val (audioOffload, onAudioOffloadChange) =
     rememberPreference(key = AudioOffload, defaultValue = false)
+
+  val (enableBitPerfectUsbDac, onEnableBitPerfectUsbDacChange) =
+    rememberPreference(key = EnableBitPerfectUsbDacKey, defaultValue = false)
+
+  val (usbDacVolumeMode, onUsbDacVolumeModeChange) =
+    rememberPreference(key = UsbDacVolumeModeKey, defaultValue = "PURE_BIT_PERFECT")
 
   val (preloadNextSongEnabled, onPreloadNextSongEnabledChange) =
     rememberPreference(key = PreloadNextSongEnabledKey, defaultValue = true)
@@ -645,6 +653,32 @@ fun PlayerSettings(
               )
             )
           }
+
+          add(
+            Material3SettingsItem(
+              isHighlighted = (highlightKey == "Bit-Perfect USB-DAC"),
+              icon = painterResource(R.drawable.volume_up),
+              title = { Text("Bit-Perfect USB-DAC Output") },
+              description = { Text("Direct UAC1/UAC2 driver bypassing Android OS mixer") },
+              trailingContent = {
+                Switch(
+                  checked = enableBitPerfectUsbDac,
+                  onCheckedChange = onEnableBitPerfectUsbDacChange,
+                  thumbContent = {
+                    Icon(
+                      painter =
+                        painterResource(
+                          id = if (enableBitPerfectUsbDac) R.drawable.check else R.drawable.close
+                        ),
+                      contentDescription = null,
+                      modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                  }
+                )
+              },
+              onClick = { onEnableBitPerfectUsbDacChange(!enableBitPerfectUsbDac) }
+            )
+          )
 
           add(
             Material3SettingsItem(

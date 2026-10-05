@@ -24,6 +24,7 @@ kotlin { jvmToolchain(21) }
 
 dependencies {
   implementation(project(":core"))
+  api(project(":usbaudio"))
   "gmsImplementation"(libs.cast.framework)
   api(libs.media3)
   api(libs.media3.session)

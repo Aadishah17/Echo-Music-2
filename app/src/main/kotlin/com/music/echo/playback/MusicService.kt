@@ -84,6 +84,7 @@ import echo.music.iad1tya.constants.CrossfadeEnabledKey
 import echo.music.iad1tya.constants.CrossfadeGaplessKey
 import echo.music.iad1tya.constants.DisableLoadMoreWhenRepeatAllKey
 import echo.music.iad1tya.constants.DiscordTokenKey
+import echo.music.iad1tya.constants.EnableBitPerfectUsbDacKey
 import echo.music.iad1tya.constants.EnableDiscordRPCKey
 import echo.music.iad1tya.constants.EnableLastFMScrobblingKey
 import echo.music.iad1tya.constants.ForceOpusKey
@@ -132,6 +133,10 @@ import echo.music.iad1tya.eq.audio.AutomixDuckAudioProcessor
 import echo.music.iad1tya.eq.audio.CustomEqualizerAudioProcessor
 import echo.music.iad1tya.eq.audio.StereoWidenerAudioProcessor
 import echo.music.iad1tya.eq.data.EQProfileRepository
+import echo.music.iad1tya.playback.AudioSinkSelector
+import echo.music.usbaudio.UsbAudioDriver
+import echo.music.usbaudio.UsbDacAudioSink
+import echo.music.usbaudio.UsbDacManager
 import echo.music.iad1tya.extensions.SilentHandler
 import echo.music.iad1tya.extensions.collect
 import echo.music.iad1tya.extensions.collectLatest
@@ -244,6 +249,15 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private var isPausedByVolumeMute = false
   var preferredDeviceId: Int? = null
     private set
+
+  private val usbAudioDriver by lazy { UsbAudioDriver() }
+  private val usbDacManager by lazy {
+    UsbDacManager(this, usbAudioDriver).apply {
+      onDeviceDetachedCallback = {
+        player.pause()
+      }
+    }
+  }
 
   private var crossfadeEnabled = false
   private var crossfadeDuration = 5000f
@@ -682,6 +696,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     registerReceiver(screenStateReceiver, screenStateFilter)
 
     audioManager.registerAudioDeviceCallback(audioDeviceCallback, null)
+    usbDacManager.register()
 
     audioQuality =
       dataStore.get(AudioQualityKey).toEnum(echo.music.iad1tya.constants.AudioQuality.OPUS)
@@ -3487,8 +3502,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         context: Context,
         enableFloatOutput: Boolean,
         enableAudioTrackPlaybackParams: Boolean,
-      ) =
-        DefaultAudioSink.Builder(this@MusicService)
+      ): androidx.media3.exoplayer.audio.AudioSink {
+        val defaultSink = DefaultAudioSink.Builder(this@MusicService)
           .setEnableFloatOutput(enableFloatOutput)
           .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
           .setAudioProcessorChain(
@@ -3504,6 +3519,21 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ),
           )
           .build()
+
+        val isBitPerfectEnabled = dataStore[EnableBitPerfectUsbDacKey] ?: false
+        val activeDac = usbDacManager.activeDacFlow.value
+        val usbSink = if (activeDac is echo.music.usbaudio.DacDeviceState.Connected) {
+          UsbDacAudioSink(usbAudioDriver, activeDac.capabilities)
+        } else {
+          null
+        }
+
+        return AudioSinkSelector.selectSink(
+          isBitPerfectActive = isBitPerfectEnabled,
+          usbDacAudioSink = usbSink,
+          defaultAudioSink = defaultSink
+        )
+      }
     }
 
   override fun onPlaybackStatsReady(
@@ -3653,6 +3683,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     } catch (e: Exception) {}
 
     audioManager.unregisterAudioDeviceCallback(audioDeviceCallback)
+    usbDacManager.unregister()
     castConnectionHandler?.release()
     if (dataStore.get(PersistentQueueKey, true)) {
       saveQueueToDisk()
