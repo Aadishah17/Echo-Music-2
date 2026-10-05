@@ -169,6 +169,53 @@ class UsbAudioDriver {
         )
     }
 
+    /**
+     * Calculates nominal samples per microframe (8,000 microframes/sec on High-Speed USB).
+     */
+    fun calculateNominalPacketSamples(sampleRate: Int): Int {
+        if (nativeLoaded) {
+            return nativeCalculateNominalPacketSamples(sampleRate)
+        }
+        return sampleRate / 8000
+    }
+
+    /**
+     * Starts native isochronous streaming loop using Linux usbdevfs.
+     */
+    fun startStream(
+        fd: Int,
+        dataEp: Int,
+        syncEp: Int = -1,
+        sampleRate: Int,
+        bitDepth: Int = 16,
+        channels: Int = 2
+    ): Int {
+        if (nativeLoaded) {
+            return nativeStartStream(fd, dataEp, syncEp, sampleRate, bitDepth, channels)
+        }
+        return 0
+    }
+
+    /**
+     * Stops native isochronous streaming loop.
+     */
+    fun stopStream(): Int {
+        if (nativeLoaded) {
+            return nativeStopStream()
+        }
+        return 0
+    }
+
+    /**
+     * Enqueues PCM audio buffer into the native ring buffer.
+     */
+    fun writeAudio(buffer: ByteArray, size: Int = buffer.size): Int {
+        if (nativeLoaded) {
+            return nativeWriteAudio(buffer, size)
+        }
+        return testRingBufferWrite(if (size == buffer.size) buffer else buffer.copyOfRange(0, size))
+    }
+
     // ── JNI declarations ─────────────────────────────────────────────────────
 
     private external fun nativeGetVersion(): String
@@ -176,4 +223,8 @@ class UsbAudioDriver {
     private external fun nativeTestRingBufferRead(size: Int): ByteArray
     private external fun nativeTestRingBufferFlush()
     private external fun nativeParseDescriptors(descriptors: ByteArray): DacCapabilities
+    private external fun nativeCalculateNominalPacketSamples(sampleRate: Int): Int
+    private external fun nativeStartStream(fd: Int, dataEp: Int, syncEp: Int, sampleRate: Int, bitDepth: Int, channels: Int): Int
+    private external fun nativeStopStream(): Int
+    private external fun nativeWriteAudio(buffer: ByteArray, size: Int): Int
 }

@@ -10,6 +10,7 @@ add_library(
     jni_bridge.cpp
     spsc_ring_buffer.cpp
     descriptor_parser.cpp
+    usb_stream_engine.cpp
 )
 
 target_include_directories(

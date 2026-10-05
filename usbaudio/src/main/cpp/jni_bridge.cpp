@@ -7,11 +7,13 @@
 
 #include "spsc_ring_buffer.h"
 #include "descriptor_parser.h"
+#include "usb_stream_engine.h"
 
 // Native driver version constant — must match UsbAudioDriver.kt JVM fallback.
 static constexpr const char* NATIVE_DRIVER_VERSION = "1.0.0-usbaudio";
 
 static echo::music::usbaudio::SpscRingBuffer g_test_ring_buffer(echo::music::usbaudio::SpscRingBuffer::DEFAULT_CAPACITY);
+static echo::music::usbaudio::UsbStreamEngine g_stream_engine;
 
 extern "C" {
 
@@ -144,6 +146,40 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeParseDescriptors(JNIEnv* env, jobj
     );
 
     return capsObj;
+}
+
+JNIEXPORT jint JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeCalculateNominalPacketSamples(JNIEnv* /* env */, jobject /* thiz */, jint sampleRate) {
+    return static_cast<jint>(echo::music::usbaudio::UsbStreamEngine::calculateNominalPacketSamples(static_cast<uint32_t>(sampleRate)));
+}
+
+JNIEXPORT jint JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeStartStream(JNIEnv* /* env */, jobject /* thiz */,
+                                                          jint fd, jint dataEp, jint syncEp,
+                                                          jint sampleRate, jint bitDepth, jint channels) {
+    return g_stream_engine.startStream(fd, dataEp, syncEp,
+                                       static_cast<uint32_t>(sampleRate),
+                                       static_cast<uint32_t>(bitDepth),
+                                       static_cast<uint32_t>(channels));
+}
+
+JNIEXPORT jint JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeStopStream(JNIEnv* /* env */, jobject /* thiz */) {
+    return g_stream_engine.stopStream();
+}
+
+JNIEXPORT jint JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeWriteAudio(JNIEnv* env, jobject /* thiz */, jbyteArray buffer, jint size) {
+    if (!buffer || size <= 0) return 0;
+    jsize len = env->GetArrayLength(buffer);
+    int to_write = std::min(static_cast<int>(len), size);
+    if (to_write <= 0) return 0;
+
+    jbyte* bytes = env->GetByteArrayElements(buffer, nullptr);
+    size_t written = g_stream_engine.writeAudio(reinterpret_cast<const uint8_t*>(bytes), static_cast<size_t>(to_write));
+    env->ReleaseByteArrayElements(buffer, bytes, JNI_ABORT);
+
+    return static_cast<jint>(written);
 }
 
 } // extern "C"
