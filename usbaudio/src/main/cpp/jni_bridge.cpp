@@ -182,4 +182,9 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeWriteAudio(JNIEnv* env, jobject /*
     return static_cast<jint>(written);
 }
 
+JNIEXPORT void JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeSetVolumeMultiplier(JNIEnv* /* env */, jobject /* thiz */, jdouble multiplier) {
+    g_stream_engine.setVolumeMultiplier(static_cast<double>(multiplier));
+}
+
 } // extern "C"

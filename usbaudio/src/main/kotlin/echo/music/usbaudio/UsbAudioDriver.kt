@@ -216,6 +216,15 @@ class UsbAudioDriver {
         return testRingBufferWrite(if (size == buffer.size) buffer else buffer.copyOfRange(0, size))
     }
 
+    /**
+     * Sets 64-bit software attenuation multiplier (0.0..1.0).
+     */
+    fun setSoftwareVolumeMultiplier(multiplier: Double) {
+        if (nativeLoaded) {
+            nativeSetVolumeMultiplier(multiplier)
+        }
+    }
+
     // ── JNI declarations ─────────────────────────────────────────────────────
 
     private external fun nativeGetVersion(): String
@@ -227,4 +236,5 @@ class UsbAudioDriver {
     private external fun nativeStartStream(fd: Int, dataEp: Int, syncEp: Int, sampleRate: Int, bitDepth: Int, channels: Int): Int
     private external fun nativeStopStream(): Int
     private external fun nativeWriteAudio(buffer: ByteArray, size: Int): Int
+    private external fun nativeSetVolumeMultiplier(multiplier: Double)
 }

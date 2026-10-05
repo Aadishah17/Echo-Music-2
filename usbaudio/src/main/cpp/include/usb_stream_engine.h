@@ -55,10 +55,19 @@ public:
      */
     size_t writeAudio(const uint8_t* buffer, size_t size);
 
+    void setVolumeMultiplier(double multiplier) {
+        volume_multiplier_.store(multiplier, std::memory_order_relaxed);
+    }
+
+    [[nodiscard]] double getVolumeMultiplier() const {
+        return volume_multiplier_.load(std::memory_order_relaxed);
+    }
+
     [[nodiscard]] bool isStreaming() const { return streaming_.load(std::memory_order_relaxed); }
     [[nodiscard]] SpscRingBuffer& ringBuffer() { return ring_buffer_; }
 
 private:
+    std::atomic<double> volume_multiplier_{1.0};
     void streamLoop();
     void submitInitialUrbs();
     void reapAndResubmitUrbs();

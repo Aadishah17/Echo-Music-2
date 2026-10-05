@@ -141,6 +141,26 @@ void UsbStreamEngine::streamLoop() {
                     std::memset(ptr + read_bytes, 0, bytes_to_send - read_bytes);
                 }
 
+                // Apply 64-bit float software volume attenuation if multiplier != 1.0
+                double mult = volume_multiplier_.load(std::memory_order_relaxed);
+                if (std::abs(mult - 1.0) > 1e-6) {
+                    if (bytes_per_sample_ == 2) { // 16-bit PCM
+                        auto* samples = reinterpret_cast<int16_t*>(ptr);
+                        size_t sample_count = bytes_to_send / sizeof(int16_t);
+                        for (size_t i = 0; i < sample_count; ++i) {
+                            double scaled = static_cast<double>(samples[i]) * mult;
+                            samples[i] = static_cast<int16_t>(std::clamp(scaled, -32768.0, 32767.0));
+                        }
+                    } else if (bytes_per_sample_ == 4) { // 32-bit PCM
+                        auto* samples = reinterpret_cast<int32_t*>(ptr);
+                        size_t sample_count = bytes_to_send / sizeof(int32_t);
+                        for (size_t i = 0; i < sample_count; ++i) {
+                            double scaled = static_cast<double>(samples[i]) * mult;
+                            samples[i] = static_cast<int32_t>(std::clamp(scaled, -2147483648.0, 2147483647.0));
+                        }
+                    }
+                }
+
                 ctx->iso_descs[p].length = bytes_to_send;
                 ctx->iso_descs[p].actual_length = 0;
                 ctx->iso_descs[p].status = 0;
