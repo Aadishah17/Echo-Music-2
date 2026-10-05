@@ -34,5 +34,7 @@ android {
 kotlin { jvmToolchain(21) }
 
 dependencies {
+  compileOnly(libs.media3)
+  testImplementation(libs.media3)
   testImplementation(libs.junit)
 }
