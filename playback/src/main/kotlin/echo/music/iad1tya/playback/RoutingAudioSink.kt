@@ -21,6 +21,13 @@ class RoutingAudioSink(
     var activeSink: AudioSink = defaultSink
         private set
 
+    private data class LastConfiguration(
+        val inputFormat: Format,
+        val specifiedBufferSize: Int,
+        val outputChannels: IntArray?
+    )
+    private var lastConfig: LastConfiguration? = null
+
     init {
         reselect()
     }
@@ -32,6 +39,11 @@ class RoutingAudioSink(
             activeSink = target
             oldSink.pause()
             oldSink.flush()
+            lastConfig?.let { cfg ->
+                if (activeSink.supportsFormat(cfg.inputFormat)) {
+                    activeSink.configure(cfg.inputFormat, cfg.specifiedBufferSize, cfg.outputChannels)
+                }
+            }
         }
     }
 
@@ -52,9 +64,9 @@ class RoutingAudioSink(
         specifiedBufferSize: Int,
         outputChannels: IntArray?
     ) {
+        lastConfig = LastConfiguration(inputFormat, specifiedBufferSize, outputChannels)
         reselect()
-        defaultSink.configure(inputFormat, specifiedBufferSize, outputChannels)
-        usbSink.configure(inputFormat, specifiedBufferSize, outputChannels)
+        activeSink.configure(inputFormat, specifiedBufferSize, outputChannels)
     }
 
     override fun play() {

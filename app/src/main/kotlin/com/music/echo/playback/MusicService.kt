@@ -1240,7 +1240,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
   }
 
-  private fun createExoPlayer(): ExoPlayer {
+  private fun createExoPlayer(isPrimary: Boolean = true): ExoPlayer {
     val eqProcessor = CustomEqualizerAudioProcessor()
     equalizerService.addAudioProcessor(eqProcessor)
 
@@ -1261,7 +1261,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       ExoPlayer.Builder(this)
         .setMediaSourceFactory(createMediaSourceFactory())
         .setRenderersFactory(
-          createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor, stereoWidener)
+          createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor, stereoWidener, isPrimary)
         )
         .setLoadControl(
           DefaultLoadControl.Builder()
@@ -3517,6 +3517,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     silenceProcessor: SilenceDetectorAudioProcessor,
     duckProcessor: AutomixDuckAudioProcessor,
     stereoWidener: StereoWidenerAudioProcessor,
+    isPrimary: Boolean = true,
   ) =
     object : DefaultRenderersFactory(this) {
       override fun buildAudioSink(
@@ -3540,6 +3541,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ),
           )
           .build()
+
+        if (!isPrimary) {
+          return defaultSink
+        }
 
         val usbSink = UsbDacAudioSink(
           driver = usbAudioDriver,
@@ -4415,6 +4420,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
     val savedRepeatMode = cachedRepeatMode
     val savedShuffleEnabled = cachedShuffleEnabled
+    if (isBitPerfectEnabled && usbDacManager.activeDacFlow.value is echo.music.usbaudio.DacDeviceState.Connected) {
+      return
+    }
     val targetIndex =
       if (savedRepeatMode == REPEAT_MODE_ONE) {
         player.currentMediaItemIndex
@@ -4424,7 +4432,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     if (targetIndex == C.INDEX_UNSET) return
     val targetMediaId = player.getMediaItemAt(targetIndex).mediaId
 
-    val secPlayer = createExoPlayer()
+    val secPlayer = createExoPlayer(isPrimary = false)
     secPlayer.addListener(secondaryPlayerListener)
 
     val itemCount = player.mediaItemCount
@@ -4452,6 +4460,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   private fun startCrossfade(plan: AutomixPlan? = null) {
     if (isCrossfading.value) return
+    if (isBitPerfectEnabled && usbDacManager.activeDacFlow.value is echo.music.usbaudio.DacDeviceState.Connected) {
+      return
+    }
 
     val savedRepeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
     val savedShuffleEnabled = runBlocking { dataStore.get(ShuffleModeKey, false) }
@@ -4477,7 +4488,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     } else {
       releasePrebuffered() // stale — buffered for a track that's no longer next.
 
-      secPlayer = createExoPlayer()
+      secPlayer = createExoPlayer(isPrimary = false)
       secPlayer.addListener(secondaryPlayerListener)
 
       val itemCount = player.mediaItemCount
