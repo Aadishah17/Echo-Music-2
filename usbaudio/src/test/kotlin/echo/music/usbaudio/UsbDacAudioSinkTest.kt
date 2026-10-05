@@ -62,6 +62,8 @@ class UsbDacAudioSinkTest {
     // Still not ended until playToEndOfStream is called
     assertFalse(sink.isEnded())
 
+    sink.setVolume(0.5f)
+
     sink.flush()
     org.junit.Assert.assertEquals(0L, sink.getCurrentPositionUs(false))
   }

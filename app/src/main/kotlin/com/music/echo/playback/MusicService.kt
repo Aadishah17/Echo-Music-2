@@ -259,6 +259,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
   }
 
+  @Volatile private var isBitPerfectEnabled = false
+
   private var crossfadeEnabled = false
   private var crossfadeDuration = 5000f
   private var crossfadeGapless = true
@@ -733,7 +735,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     scope.launch {
       dataStore.data.map { it[EnableBitPerfectUsbDacKey] ?: false }
         .distinctUntilChanged()
-        .collect {
+        .collect { enabled ->
+          isBitPerfectEnabled = enabled
           if (player.playbackState == Player.STATE_READY && player.isPlaying) {
             player.seekTo(player.currentPosition)
           }
@@ -3547,9 +3550,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           defaultAudioSink = defaultSink,
           usbDacAudioSink = usbSink,
           isBitPerfectActive = {
-            val enabled = dataStore.get(EnableBitPerfectUsbDacKey, false)
             val dacConnected = usbDacManager.activeDacFlow.value is echo.music.usbaudio.DacDeviceState.Connected
-            enabled && dacConnected
+            isBitPerfectEnabled && dacConnected
           }
         )
       }

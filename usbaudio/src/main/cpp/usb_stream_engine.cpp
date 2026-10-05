@@ -44,6 +44,7 @@ int UsbStreamEngine::startStream(int fd, int dataEp, int syncEp, uint32_t sample
 
     ring_buffer_.flush();
     frames_played_.store(0, std::memory_order_release);
+    flush_requested_.store(false, std::memory_order_release);
 
     streaming_.store(true, std::memory_order_release);
     stream_thread_ = std::thread(&UsbStreamEngine::streamLoop, this);
@@ -127,6 +128,12 @@ void UsbStreamEngine::streamLoop() {
     }
 
     while (streaming_.load(std::memory_order_relaxed)) {
+        if (flush_requested_.exchange(false, std::memory_order_acq_rel)) {
+            ring_buffer_.flush();
+            fractional_accum_ = 0;
+            frames_played_.store(0, std::memory_order_release);
+        }
+
         if (fd_ < 0) {
             usleep(1000);
             continue;

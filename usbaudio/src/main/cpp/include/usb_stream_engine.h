@@ -64,9 +64,13 @@ public:
     }
 
     void flush() {
-        ring_buffer_.flush();
-        fractional_accum_ = 0;
-        frames_played_.store(0, std::memory_order_release);
+        if (!streaming_.load(std::memory_order_relaxed)) {
+            ring_buffer_.flush();
+            fractional_accum_ = 0;
+            frames_played_.store(0, std::memory_order_release);
+        } else {
+            flush_requested_.store(true, std::memory_order_release);
+        }
     }
 
     [[nodiscard]] uint64_t getFramesPlayed() const {
@@ -79,6 +83,7 @@ public:
 private:
     std::atomic<double> volume_multiplier_{1.0};
     std::atomic<uint64_t> frames_played_{0};
+    std::atomic<bool> flush_requested_{false};
     void streamLoop();
     void submitInitialUrbs();
     void reapAndResubmitUrbs();

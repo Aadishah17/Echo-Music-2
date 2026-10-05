@@ -28,6 +28,15 @@ class UsbDacAudioSink(
     private var inputFormat: Format? = null
     private var volume = 1.0f
     private var framesWrittenJvm: Long = 0L
+    private var scratchBuffer = ByteArray(0)
+
+    private fun getBytesPerSample(encoding: Int): Int = when (encoding) {
+        C.ENCODING_PCM_8BIT -> 1
+        C.ENCODING_PCM_16BIT -> 2
+        C.ENCODING_PCM_24BIT -> 3
+        C.ENCODING_PCM_32BIT, C.ENCODING_PCM_FLOAT -> 4
+        else -> 2
+    }
 
     override fun setListener(listener: AudioSink.Listener) {
         this.listener = listener
@@ -127,22 +136,24 @@ class UsbDacAudioSink(
 
         val remaining = buffer.remaining()
         val startPos = buffer.position()
-        val temp = ByteArray(remaining)
-        buffer.get(temp)
+        if (scratchBuffer.size < remaining) {
+            scratchBuffer = ByteArray(remaining)
+        }
+        buffer.get(scratchBuffer, 0, remaining)
 
-        val written = driver.writeAudio(temp, remaining)
+        val written = driver.writeAudio(scratchBuffer, remaining)
+        val channels = if (inputFormat?.channelCount != null && inputFormat?.channelCount != Format.NO_VALUE) inputFormat!!.channelCount else 2
+        val bytesPerSample = getBytesPerSample(inputFormat?.pcmEncoding ?: C.ENCODING_PCM_16BIT)
+        val frameBytes = maxOf(1, channels * bytesPerSample)
+
         if (written < remaining) {
             val actualWritten = maxOf(0, written)
             buffer.position(startPos + actualWritten)
-            val channels = inputFormat?.channelCount ?: 2
-            val bytesPerSample = 2
-            framesWrittenJvm += actualWritten / (channels * bytesPerSample)
+            framesWrittenJvm += actualWritten / frameBytes
             return false // Backpressure: ring buffer full, retry on next cycle
         }
 
-        val channels = inputFormat?.channelCount ?: 2
-        val bytesPerSample = 2
-        framesWrittenJvm += remaining / (channels * bytesPerSample)
+        framesWrittenJvm += remaining / frameBytes
         return true
     }
 
@@ -178,6 +189,7 @@ class UsbDacAudioSink(
 
     override fun setVolume(volume: Float) {
         this.volume = volume
+        driver.setSoftwareVolumeMultiplier(volume.toDouble().coerceIn(0.0, 1.0))
     }
 
     override fun pause() {

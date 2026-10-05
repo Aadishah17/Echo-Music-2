@@ -42,6 +42,7 @@ class UsbAudioServiceRoutingTest {
     org.junit.Assert.assertSame(mockDefaultSink, routingSink.activeSink)
 
     bitPerfect = true
+    routingSink.flush()
     org.junit.Assert.assertSame(mockUsbSink, routingSink.activeSink)
   }
 }
