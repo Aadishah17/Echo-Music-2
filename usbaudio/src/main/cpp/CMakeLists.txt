@@ -9,6 +9,7 @@ add_library(
     SHARED
     jni_bridge.cpp
     spsc_ring_buffer.cpp
+    descriptor_parser.cpp
 )
 
 target_include_directories(

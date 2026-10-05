@@ -1,5 +1,8 @@
 package echo.music.usbaudio
 
+import echo.music.usbaudio.model.DacCapabilities
+import echo.music.usbaudio.model.DacFormat
+
 /**
  * JNI lifecycle wrapper for the native usbaudio_driver shared library.
  *
@@ -97,10 +100,80 @@ class UsbAudioDriver {
         }
     }
 
+    /**
+     * Parses raw USB configuration descriptors into [DacCapabilities].
+     */
+    fun parseDescriptors(rawDescriptors: ByteArray): DacCapabilities {
+        if (nativeLoaded) {
+            return nativeParseDescriptors(rawDescriptors)
+        }
+        // JVM test fallback parser for host JVM unit test execution
+        return parseDescriptorsJvm(rawDescriptors)
+    }
+
+    private fun parseDescriptorsJvm(data: ByteArray): DacCapabilities {
+        var offset = 0
+        var uacVersion = 1
+        val sampleRates = mutableSetOf<Int>()
+        var clockSourceId: Int? = null
+        var hasHwVolume = false
+        var volumeFuId: Int? = null
+
+        var currentIfaceClass = -1
+        var currentIfaceSubClass = -1
+        var currentIfaceProtocol = -1
+        var currentIfaceNum = 0
+        var currentAlt = 0
+
+        while (offset + 2 <= data.size) {
+            val len = data[offset].toInt() and 0xFF
+            val type = data[offset + 1].toInt() and 0xFF
+            if (len == 0 || offset + len > data.size) break
+
+            if (type == 0x04 && len >= 9) { // USB_DT_INTERFACE
+                currentIfaceNum = data[offset + 2].toInt() and 0xFF
+                currentAlt = data[offset + 3].toInt() and 0xFF
+                currentIfaceClass = data[offset + 5].toInt() and 0xFF
+                currentIfaceSubClass = data[offset + 6].toInt() and 0xFF
+                currentIfaceProtocol = data[offset + 7].toInt() and 0xFF
+
+                if (currentIfaceClass == 0x01 && currentIfaceSubClass == 0x01) {
+                    if (currentIfaceProtocol == 0x20) {
+                        uacVersion = 2
+                    } else if (currentIfaceProtocol == 0x00) {
+                        uacVersion = 1
+                    }
+                }
+            } else if (type == 0x24) { // USB_DT_CS_INTERFACE
+                val subtype = data[offset + 2].toInt() and 0xFF
+                if (currentIfaceClass == 0x01 && currentIfaceSubClass == 0x01) {
+                    if (uacVersion == 2 && subtype == 0x0A && len >= 8) { // UAC2_CLOCK_SOURCE
+                        clockSourceId = data[offset + 3].toInt() and 0xFF
+                        sampleRates.addAll(listOf(44100, 48000, 88200, 96000, 176400, 192000))
+                    } else if (subtype == 0x06 && len >= 6) { // UAC_FEATURE_UNIT
+                        hasHwVolume = true
+                        volumeFuId = data[offset + 3].toInt() and 0xFF
+                    }
+                }
+            }
+
+            offset += len
+        }
+
+        return DacCapabilities(
+            uacVersion = uacVersion,
+            supportedSampleRates = sampleRates.toList().sorted(),
+            clockSourceId = clockSourceId,
+            hasHardwareVolume = hasHwVolume,
+            volumeFeatureUnitId = volumeFuId
+        )
+    }
+
     // ── JNI declarations ─────────────────────────────────────────────────────
 
     private external fun nativeGetVersion(): String
     private external fun nativeTestRingBufferWrite(data: ByteArray): Int
     private external fun nativeTestRingBufferRead(size: Int): ByteArray
     private external fun nativeTestRingBufferFlush()
+    private external fun nativeParseDescriptors(descriptors: ByteArray): DacCapabilities
 }

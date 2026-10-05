@@ -6,6 +6,7 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 
 #include "spsc_ring_buffer.h"
+#include "descriptor_parser.h"
 
 // Native driver version constant — must match UsbAudioDriver.kt JVM fallback.
 static constexpr const char* NATIVE_DRIVER_VERSION = "1.0.0-usbaudio";
@@ -50,6 +51,99 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeTestRingBufferRead(JNIEnv* env, jo
 JNIEXPORT void JNICALL
 Java_echo_music_usbaudio_UsbAudioDriver_nativeTestRingBufferFlush(JNIEnv* /* env */, jobject /* thiz */) {
     g_test_ring_buffer.flush();
+}
+
+JNIEXPORT jobject JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeParseDescriptors(JNIEnv* env, jobject /* thiz */, jbyteArray descriptors) {
+    if (!descriptors) return nullptr;
+
+    jsize len = env->GetArrayLength(descriptors);
+    if (len == 0) return nullptr;
+
+    jbyte* bytes = env->GetByteArrayElements(descriptors, nullptr);
+    auto caps = echo::music::usbaudio::DescriptorParser::parse(reinterpret_cast<const uint8_t*>(bytes), static_cast<size_t>(len));
+    env->ReleaseByteArrayElements(descriptors, bytes, JNI_ABORT);
+
+    // Build List<DacFormat>
+    jclass listClass = env->FindClass("java/util/ArrayList");
+    jmethodID listInit = env->GetMethodID(listClass, "<init>", "()V");
+    jmethodID listAdd = env->GetMethodID(listClass, "add", "(Ljava/lang/Object;)Z");
+    jobject formatsList = env->NewObject(listClass, listInit);
+
+    jclass integerClass = env->FindClass("java/lang/Integer");
+    jmethodID integerValueOf = env->GetStaticMethodID(integerClass, "valueOf", "(I)Ljava/lang/Integer;");
+
+    jclass dacFormatClass = env->FindClass("echo/music/usbaudio/model/DacFormat");
+    jmethodID dacFormatInit = env->GetMethodID(dacFormatClass, "<init>",
+        "(IIILjava/lang/Integer;IIILjava/util/List;)V");
+
+    for (const auto& fmt : caps.supportedFormats) {
+        jobject ratesList = env->NewObject(listClass, listInit);
+        for (uint32_t r : fmt.sampleRates) {
+            jobject rateObj = env->CallStaticObjectMethod(integerClass, integerValueOf, static_cast<jint>(r));
+            env->CallBooleanMethod(ratesList, listAdd, rateObj);
+            env->DeleteLocalRef(rateObj);
+        }
+
+        jobject syncEpObj = nullptr;
+        if (fmt.syncEndpointAddress.has_value()) {
+            syncEpObj = env->CallStaticObjectMethod(integerClass, integerValueOf, static_cast<jint>(*fmt.syncEndpointAddress));
+        }
+
+        jobject dacFormatObj = env->NewObject(dacFormatClass, dacFormatInit,
+            static_cast<jint>(fmt.interfaceNumber),
+            static_cast<jint>(fmt.altSetting),
+            static_cast<jint>(fmt.endpointAddress),
+            syncEpObj,
+            static_cast<jint>(fmt.bitDepth),
+            static_cast<jint>(fmt.subslotBytes),
+            static_cast<jint>(fmt.channels),
+            ratesList
+        );
+
+        env->CallBooleanMethod(formatsList, listAdd, dacFormatObj);
+        env->DeleteLocalRef(dacFormatObj);
+        env->DeleteLocalRef(ratesList);
+        if (syncEpObj) env->DeleteLocalRef(syncEpObj);
+    }
+
+    // Build supportedSampleRates list
+    jobject sampleRatesList = env->NewObject(listClass, listInit);
+    for (uint32_t r : caps.supportedSampleRates) {
+        jobject rateObj = env->CallStaticObjectMethod(integerClass, integerValueOf, static_cast<jint>(r));
+        env->CallBooleanMethod(sampleRatesList, listAdd, rateObj);
+        env->DeleteLocalRef(rateObj);
+    }
+
+    // Optional Integers
+    jobject clockSourceIdObj = nullptr;
+    if (caps.clockSourceId.has_value()) {
+        clockSourceIdObj = env->CallStaticObjectMethod(integerClass, integerValueOf, static_cast<jint>(*caps.clockSourceId));
+    }
+
+    jobject volumeFuIdObj = nullptr;
+    if (caps.volumeFeatureUnitId.has_value()) {
+        volumeFuIdObj = env->CallStaticObjectMethod(integerClass, integerValueOf, static_cast<jint>(*caps.volumeFeatureUnitId));
+    }
+
+    // Construct DacCapabilities
+    jclass capsClass = env->FindClass("echo/music/usbaudio/model/DacCapabilities");
+    jmethodID capsInit = env->GetMethodID(capsClass, "<init>",
+        "(ILjava/util/List;Ljava/util/List;Ljava/lang/Integer;ZLjava/lang/Integer;FFF)V");
+
+    jobject capsObj = env->NewObject(capsClass, capsInit,
+        static_cast<jint>(caps.uacVersion),
+        formatsList,
+        sampleRatesList,
+        clockSourceIdObj,
+        static_cast<jboolean>(caps.hasHardwareVolume),
+        volumeFuIdObj,
+        static_cast<jfloat>(caps.minVolumeDb),
+        static_cast<jfloat>(caps.maxVolumeDb),
+        static_cast<jfloat>(caps.volumeResDb)
+    );
+
+    return capsObj;
 }
 
 } // extern "C"
