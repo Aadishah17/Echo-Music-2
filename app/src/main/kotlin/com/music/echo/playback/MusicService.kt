@@ -723,6 +723,24 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     scope.launch {
+      usbDacManager.activeDacFlow.collect {
+        if (player.playbackState == Player.STATE_READY && player.isPlaying) {
+          player.seekTo(player.currentPosition)
+        }
+      }
+    }
+
+    scope.launch {
+      dataStore.data.map { it[EnableBitPerfectUsbDacKey] ?: false }
+        .distinctUntilChanged()
+        .collect {
+          if (player.playbackState == Player.STATE_READY && player.isPlaying) {
+            player.seekTo(player.currentPosition)
+          }
+        }
+    }
+
+    scope.launch {
       connectivityObserver.networkStatus.collect { isConnected ->
         isNetworkConnected.value = isConnected
         if (isConnected && waitingForNetworkConnection.value) {
@@ -3520,18 +3538,19 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           )
           .build()
 
-        val isBitPerfectEnabled = dataStore[EnableBitPerfectUsbDacKey] ?: false
-        val activeDac = usbDacManager.activeDacFlow.value
-        val usbSink = if (activeDac is echo.music.usbaudio.DacDeviceState.Connected) {
-          UsbDacAudioSink(usbAudioDriver, activeDac.capabilities)
-        } else {
-          null
-        }
+        val usbSink = UsbDacAudioSink(
+          driver = usbAudioDriver,
+          dacConnectionProvider = { usbDacManager.activeDacFlow.value as? echo.music.usbaudio.DacDeviceState.Connected }
+        )
 
-        return AudioSinkSelector.selectSink(
-          isBitPerfectActive = isBitPerfectEnabled,
+        return AudioSinkSelector.createRoutingSink(
+          defaultAudioSink = defaultSink,
           usbDacAudioSink = usbSink,
-          defaultAudioSink = defaultSink
+          isBitPerfectActive = {
+            val enabled = dataStore.get(EnableBitPerfectUsbDacKey, false)
+            val dacConnected = usbDacManager.activeDacFlow.value is echo.music.usbaudio.DacDeviceState.Connected
+            enabled && dacConnected
+          }
         )
       }
     }

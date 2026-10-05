@@ -145,6 +145,10 @@ class UsbAudioDriver {
                     }
                 }
             } else if (type == 0x24) { // USB_DT_CS_INTERFACE
+                if (len < 3) {
+                    offset += len
+                    continue
+                }
                 val subtype = data[offset + 2].toInt() and 0xFF
                 if (currentIfaceClass == 0x01 && currentIfaceSubClass == 0x01) {
                     if (uacVersion == 2 && subtype == 0x0A && len >= 8) { // UAC2_CLOCK_SOURCE
@@ -225,6 +229,37 @@ class UsbAudioDriver {
         }
     }
 
+    /**
+     * Flushes the native isochronous streaming ring buffer and resets frames played count.
+     */
+    fun flushStream() {
+        if (nativeLoaded) {
+            nativeFlushStream()
+        } else {
+            testRingBufferFlush()
+        }
+    }
+
+    /**
+     * Returns the total audio frames delivered to the USB DAC since stream start/flush.
+     */
+    fun getFramesPlayed(): Long {
+        if (nativeLoaded) {
+            return nativeGetFramesPlayed()
+        }
+        return 0L
+    }
+
+    /**
+     * Returns true if there is unrendered audio data remaining in the ring buffer.
+     */
+    fun hasPendingData(): Boolean {
+        if (nativeLoaded) {
+            return nativeHasPendingData()
+        }
+        return jvmTestBuffer.size() > 0
+    }
+
     // ── JNI declarations ─────────────────────────────────────────────────────
 
     private external fun nativeGetVersion(): String
@@ -237,4 +272,7 @@ class UsbAudioDriver {
     private external fun nativeStopStream(): Int
     private external fun nativeWriteAudio(buffer: ByteArray, size: Int): Int
     private external fun nativeSetVolumeMultiplier(multiplier: Double)
+    private external fun nativeFlushStream()
+    private external fun nativeGetFramesPlayed(): Long
+    private external fun nativeHasPendingData(): Boolean
 }

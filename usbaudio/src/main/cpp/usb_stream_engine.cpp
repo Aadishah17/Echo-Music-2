@@ -43,6 +43,7 @@ int UsbStreamEngine::startStream(int fd, int dataEp, int syncEp, uint32_t sample
     feedback_rate_q16_ = fractional_step_;
 
     ring_buffer_.flush();
+    frames_played_.store(0, std::memory_order_release);
 
     streaming_.store(true, std::memory_order_release);
     stream_thread_ = std::thread(&UsbStreamEngine::streamLoop, this);
@@ -61,9 +62,18 @@ int UsbStreamEngine::stopStream() {
         stream_thread_.join();
     }
 
-    // Discard any active URBs on this file descriptor
+    // Discard any active submitted URBs on this file descriptor individually
     if (fd_ >= 0) {
-        ioctl(fd_, USBDEVFS_DISCARDURB, nullptr);
+        for (auto& ctx : data_urbs_) {
+            if (ctx.submitted) {
+                ioctl(fd_, USBDEVFS_DISCARDURB, ctx.urb());
+            }
+        }
+        // Reap all discarded URBs until drained so kernel holds no stale references
+        usbdevfs_urb* reaped_urb = nullptr;
+        while (ioctl(fd_, USBDEVFS_REAPURBNDELAY, &reaped_urb) == 0 && reaped_urb != nullptr) {
+            // drained
+        }
     }
 
     data_urbs_.clear();
@@ -87,27 +97,32 @@ void UsbStreamEngine::streamLoop() {
     const uint32_t max_samples_per_pkt = (sample_rate_ + MICROFRAMES_PER_SEC - 1) / MICROFRAMES_PER_SEC + 4;
     const uint32_t max_packet_size = max_samples_per_pkt * bytes_per_frame_;
     const uint32_t urb_buffer_size = max_packet_size * PACKETS_PER_URB;
+    const size_t urb_storage_size = sizeof(usbdevfs_urb) + sizeof(usbdevfs_iso_packet_desc) * PACKETS_PER_URB;
 
     data_urbs_.resize(NUM_URBS);
     for (auto& ctx : data_urbs_) {
+        ctx.urb_storage.assign(urb_storage_size, 0);
         ctx.buffer.assign(urb_buffer_size, 0);
-        ctx.iso_descs.resize(PACKETS_PER_URB);
+        ctx.submitted = false;
 
-        ctx.urb.type = USBDEVFS_URB_TYPE_ISO;
-        ctx.urb.endpoint = static_cast<unsigned char>(data_ep_);
-        ctx.urb.buffer = ctx.buffer.data();
-        ctx.urb.buffer_length = static_cast<int>(urb_buffer_size);
-        ctx.urb.number_of_packets = static_cast<int>(PACKETS_PER_URB);
-        ctx.urb.usercontext = &ctx;
+        usbdevfs_urb* u = ctx.urb();
+        u->type = USBDEVFS_URB_TYPE_ISO;
+        u->endpoint = static_cast<unsigned char>(data_ep_);
+        u->buffer = ctx.buffer.data();
+        u->buffer_length = static_cast<int>(urb_buffer_size);
+        u->number_of_packets = static_cast<int>(PACKETS_PER_URB);
+        u->usercontext = &ctx;
 
         for (size_t p = 0; p < PACKETS_PER_URB; ++p) {
-            ctx.iso_descs[p].length = max_packet_size;
-            ctx.iso_descs[p].actual_length = 0;
-            ctx.iso_descs[p].status = 0;
+            u->iso_frame_desc[p].length = max_packet_size;
+            u->iso_frame_desc[p].actual_length = 0;
+            u->iso_frame_desc[p].status = 0;
         }
 
         if (fd_ >= 0) {
-            ioctl(fd_, USBDEVFS_SUBMITURB, &ctx.urb);
+            if (ioctl(fd_, USBDEVFS_SUBMITURB, u) == 0) {
+                ctx.submitted = true;
+            }
         }
     }
 
@@ -122,6 +137,9 @@ void UsbStreamEngine::streamLoop() {
 
         if (ret == 0 && reaped_urb != nullptr) {
             auto* ctx = static_cast<UrbContext*>(reaped_urb->usercontext);
+            ctx->submitted = false;
+
+            usbdevfs_urb* u = ctx->urb();
 
             // Fill next URB packets from ring buffer
             uint8_t* ptr = ctx->buffer.data();
@@ -135,6 +153,10 @@ void UsbStreamEngine::streamLoop() {
 
                 uint32_t bytes_to_send = samples_to_send * bytes_per_frame_;
                 size_t read_bytes = ring_buffer_.read(ptr, bytes_to_send);
+
+                if (bytes_per_frame_ > 0) {
+                    frames_played_.fetch_add(read_bytes / bytes_per_frame_, std::memory_order_relaxed);
+                }
 
                 // Zero out any underrun deficit to keep isochronous clock lock intact
                 if (read_bytes < bytes_to_send) {
@@ -161,19 +183,21 @@ void UsbStreamEngine::streamLoop() {
                     }
                 }
 
-                ctx->iso_descs[p].length = bytes_to_send;
-                ctx->iso_descs[p].actual_length = 0;
-                ctx->iso_descs[p].status = 0;
+                u->iso_frame_desc[p].length = bytes_to_send;
+                u->iso_frame_desc[p].actual_length = 0;
+                u->iso_frame_desc[p].status = 0;
 
                 ptr += bytes_to_send;
                 total_length += static_cast<int>(bytes_to_send);
             }
 
-            ctx->urb.buffer_length = total_length;
-            ctx->urb.number_of_packets = static_cast<int>(PACKETS_PER_URB);
+            u->buffer_length = total_length;
+            u->number_of_packets = static_cast<int>(PACKETS_PER_URB);
 
             // Resubmit URB
-            ioctl(fd_, USBDEVFS_SUBMITURB, &ctx->urb);
+            if (ioctl(fd_, USBDEVFS_SUBMITURB, u) == 0) {
+                ctx->submitted = true;
+            }
         } else {
             // Small sleep (125 microseconds = 1 microframe) to avoid CPU pegging when idle
             usleep(125);

@@ -14,4 +14,16 @@ object AudioSinkSelector {
             defaultAudioSink
         }
     }
+
+    fun createRoutingSink(
+        defaultAudioSink: AudioSink,
+        usbDacAudioSink: AudioSink,
+        isBitPerfectActive: () -> Boolean
+    ): AudioSink {
+        return RoutingAudioSink(
+            defaultSink = defaultAudioSink,
+            usbSink = usbDacAudioSink,
+            isBitPerfectActive = isBitPerfectActive
+        )
+    }
 }

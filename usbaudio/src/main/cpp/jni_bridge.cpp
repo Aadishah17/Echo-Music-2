@@ -187,4 +187,19 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeSetVolumeMultiplier(JNIEnv* /* env
     g_stream_engine.setVolumeMultiplier(static_cast<double>(multiplier));
 }
 
+JNIEXPORT void JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeFlushStream(JNIEnv* /* env */, jobject /* thiz */) {
+    g_stream_engine.flush();
+}
+
+JNIEXPORT jlong JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeGetFramesPlayed(JNIEnv* /* env */, jobject /* thiz */) {
+    return static_cast<jlong>(g_stream_engine.getFramesPlayed());
+}
+
+JNIEXPORT jboolean JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeHasPendingData(JNIEnv* /* env */, jobject /* thiz */) {
+    return g_stream_engine.ringBuffer().availableRead() > 0 ? JNI_TRUE : JNI_FALSE;
+}
+
 } // extern "C"

@@ -63,11 +63,22 @@ public:
         return volume_multiplier_.load(std::memory_order_relaxed);
     }
 
+    void flush() {
+        ring_buffer_.flush();
+        fractional_accum_ = 0;
+        frames_played_.store(0, std::memory_order_release);
+    }
+
+    [[nodiscard]] uint64_t getFramesPlayed() const {
+        return frames_played_.load(std::memory_order_relaxed);
+    }
+
     [[nodiscard]] bool isStreaming() const { return streaming_.load(std::memory_order_relaxed); }
     [[nodiscard]] SpscRingBuffer& ringBuffer() { return ring_buffer_; }
 
 private:
     std::atomic<double> volume_multiplier_{1.0};
+    std::atomic<uint64_t> frames_played_{0};
     void streamLoop();
     void submitInitialUrbs();
     void reapAndResubmitUrbs();
@@ -95,9 +106,13 @@ private:
 
     // URBs and transfer buffers
     struct UrbContext {
-        std::vector<usbdevfs_iso_packet_desc> iso_descs;
+        std::vector<uint8_t> urb_storage; // Holds usbdevfs_urb + trailing usbdevfs_iso_packet_desc[PACKETS_PER_URB]
         std::vector<uint8_t> buffer;
-        usbdevfs_urb urb{};
+        bool submitted{false};
+
+        usbdevfs_urb* urb() {
+            return reinterpret_cast<usbdevfs_urb*>(urb_storage.data());
+        }
     };
 
     std::vector<UrbContext> data_urbs_;

@@ -17,13 +17,17 @@ import java.nio.ByteBuffer
  */
 class UsbDacAudioSink(
     private val driver: UsbAudioDriver,
-    var capabilities: DacCapabilities = DacCapabilities(uacVersion = 2)
+    var capabilities: DacCapabilities = DacCapabilities(uacVersion = 2),
+    private val dacConnectionProvider: (() -> DacDeviceState.Connected?)? = null
 ) : AudioSink {
 
     private var listener: AudioSink.Listener? = null
     private var playing = false
+    private var isStreamEnded = false
+    private var isStreaming = false
     private var inputFormat: Format? = null
     private var volume = 1.0f
+    private var framesWrittenJvm: Long = 0L
 
     override fun setListener(listener: AudioSink.Listener) {
         this.listener = listener
@@ -53,7 +57,14 @@ class UsbDacAudioSink(
     }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
-        return C.TIME_UNSET
+        val sampleRate = inputFormat?.sampleRate ?: 44100
+        if (sampleRate <= 0) return 0L
+        val frames = if (driver.isLoaded() && isStreaming) {
+            driver.getFramesPlayed()
+        } else {
+            framesWrittenJvm
+        }
+        return (frames * 1_000_000L) / sampleRate
     }
 
     override fun configure(
@@ -62,10 +73,44 @@ class UsbDacAudioSink(
         outputChannels: IntArray?
     ) {
         this.inputFormat = inputFormat
+        framesWrittenJvm = 0L
+        isStreamEnded = false
     }
 
     override fun play() {
         playing = true
+        startStreamIfNeeded()
+    }
+
+    private fun startStreamIfNeeded() {
+        if (isStreaming) return
+        val connected = dacConnectionProvider?.invoke()
+        if (connected != null) {
+            capabilities = connected.capabilities
+            val format = inputFormat
+            val sampleRate = if (format != null && format.sampleRate != Format.NO_VALUE) format.sampleRate else 44100
+            val channels = if (format != null && format.channelCount != Format.NO_VALUE) format.channelCount else 2
+            val matching = capabilities.supportedFormats.firstOrNull { fmt ->
+                (format?.sampleRate == null || format.sampleRate == Format.NO_VALUE || fmt.sampleRates.isEmpty() || fmt.sampleRates.contains(sampleRate)) &&
+                (format?.channelCount == null || format.channelCount == Format.NO_VALUE || fmt.channels == channels)
+            } ?: capabilities.supportedFormats.firstOrNull()
+
+            val dataEp = matching?.endpointAddress ?: 0x01
+            val syncEp = matching?.syncEndpointAddress ?: -1
+            val bitDepth = matching?.bitDepth ?: 16
+
+            val ret = driver.startStream(
+                fd = connected.fileDescriptor,
+                dataEp = dataEp,
+                syncEp = syncEp,
+                sampleRate = sampleRate,
+                bitDepth = bitDepth,
+                channels = channels
+            )
+            if (ret == 0) {
+                isStreaming = true
+            }
+        }
     }
 
     override fun handleDiscontinuity() {}
@@ -76,21 +121,38 @@ class UsbDacAudioSink(
         encodedAccessUnitCount: Int
     ): Boolean {
         if (!buffer.hasRemaining()) return true
+        if (playing) {
+            startStreamIfNeeded()
+        }
 
         val remaining = buffer.remaining()
+        val startPos = buffer.position()
         val temp = ByteArray(remaining)
         buffer.get(temp)
-        driver.writeAudio(temp, remaining)
+
+        val written = driver.writeAudio(temp, remaining)
+        if (written < remaining) {
+            val actualWritten = maxOf(0, written)
+            buffer.position(startPos + actualWritten)
+            val channels = inputFormat?.channelCount ?: 2
+            val bytesPerSample = 2
+            framesWrittenJvm += actualWritten / (channels * bytesPerSample)
+            return false // Backpressure: ring buffer full, retry on next cycle
+        }
+
+        val channels = inputFormat?.channelCount ?: 2
+        val bytesPerSample = 2
+        framesWrittenJvm += remaining / (channels * bytesPerSample)
         return true
     }
 
     override fun playToEndOfStream() {
-        playing = false
+        isStreamEnded = true
     }
 
-    override fun isEnded(): Boolean = !playing
+    override fun isEnded(): Boolean = isStreamEnded && !hasPendingData()
 
-    override fun hasPendingData(): Boolean = false
+    override fun hasPendingData(): Boolean = driver.hasPendingData()
 
     override fun getAudioTrackBufferSizeUs(): Long = 0L
 
@@ -123,12 +185,19 @@ class UsbDacAudioSink(
     }
 
     override fun flush() {
-        driver.testRingBufferFlush()
+        driver.flushStream()
+        framesWrittenJvm = 0L
+        isStreamEnded = false
     }
 
     override fun reset() {
+        if (isStreaming) {
+            driver.stopStream()
+            isStreaming = false
+        }
         flush()
         playing = false
+        isStreamEnded = false
         inputFormat = null
     }
 }

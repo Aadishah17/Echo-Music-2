@@ -26,4 +26,17 @@ class DescriptorParserTest {
     assertTrue(capabilities.supportedSampleRates.contains(96000))
     assertTrue(capabilities.supportedSampleRates.contains(192000))
   }
+
+  @Test
+  fun testParseShortDescriptorsDoesNotThrowOrReadOutOfBounds() {
+    val driver = UsbAudioDriver()
+    // Descriptors with truncated length (e.g., CS_INTERFACE with length 2)
+    val malformedDescriptors = byteArrayOf(
+      0x02, 0x24, // Length 2 CS_INTERFACE (subtype missing)
+      0x03, 0x24, 0x02, // Length 3 CS_INTERFACE (subtype 0x02, format missing)
+      0x00 // Zero length terminator
+    )
+    val capabilities = driver.parseDescriptors(malformedDescriptors)
+    assertEquals(1, capabilities.uacVersion)
+  }
 }

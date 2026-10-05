@@ -64,6 +64,7 @@ ParsedDacCapabilities DescriptorParser::parse(const uint8_t* data, size_t size) 
                 }
             }
         } else if (descType == USB_DT_CS_INTERFACE) {
+            if (descLen < 3) continue;
             uint8_t subtype = descData[2];
 
             if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOCONTROL) {
@@ -83,6 +84,7 @@ ParsedDacCapabilities DescriptorParser::parse(const uint8_t* data, size_t size) 
                 }
             } else if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOSTREAMING) {
                 if (subtype == UAC_FORMAT_TYPE && currentFormat.has_value()) {
+                    if (descLen < 4) continue;
                     uint8_t formatType = descData[3];
                     if (formatType == UAC_FORMAT_TYPE_I) {
                         if (caps.uacVersion == 2 && descLen >= sizeof(Uac2FormatTypeIDescriptor)) {
