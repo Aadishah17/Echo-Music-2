@@ -35,6 +35,7 @@ kotlin { jvmToolchain(21) }
 
 dependencies {
   compileOnly(libs.media3)
+  compileOnly("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
   testImplementation(libs.media3)
   testImplementation(libs.junit)
 }
