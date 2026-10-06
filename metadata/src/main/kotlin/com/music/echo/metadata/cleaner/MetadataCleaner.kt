@@ -106,7 +106,7 @@ object MetadataCleaner {
     var version: VersionInfo? = null
 
     // Extract pipe junk or trailing separator junk like " | Official Visualizer 2024" or "// something"
-    val pipeMatch = Regex("""\s*[|//]\s*(.*)$""").find(workingTitle)
+    val pipeMatch = Regex("""\s*(?:\||//)\s*(.*)$""").find(workingTitle)
     if (pipeMatch != null) {
       val trailing = pipeMatch.groupValues[1].trim()
       junkTags.add(trailing)
@@ -135,7 +135,7 @@ object MetadataCleaner {
         val splitFeat = splitArtists(artistsStr)
         featuredArtists.add(splitFeat.first)
         featuredArtists.addAll(splitFeat.second)
-        workingTitle = workingTitle.replace(fullMatch, " ")
+        workingTitle = workingTitle.replaceFirst(fullMatch, " ")
         continue
       }
 
@@ -152,7 +152,7 @@ object MetadataCleaner {
         if (version == null) {
           version = matchedVersion
         }
-        workingTitle = workingTitle.replace(fullMatch, " ")
+        workingTitle = workingTitle.replaceFirst(fullMatch, " ")
         continue
       }
 
@@ -167,7 +167,7 @@ object MetadataCleaner {
       }
 
       if (isJunk) {
-        workingTitle = workingTitle.replace(fullMatch, " ")
+        workingTitle = workingTitle.replaceFirst(fullMatch, " ")
       }
     }
 
@@ -198,8 +198,8 @@ object MetadataCleaner {
       cleaned = cleaned.substring(0, cleaned.length - 8).trim()
     }
 
-    if (cleaned.endsWith("VEVO", ignoreCase = false)) {
-      val base = cleaned.removeSuffix("VEVO").trim()
+    if (cleaned.endsWith("VEVO", ignoreCase = true)) {
+      val base = cleaned.substring(0, cleaned.length - 4).trim()
       cleaned = splitCamelCase(base)
     }
 

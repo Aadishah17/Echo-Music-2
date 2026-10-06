@@ -104,8 +104,7 @@ object Paxsenix {
     duration: Int,
     album: String? = null,
   ): Result<String> = runCatching {
-    val cleanedTitle = cleanTitle(title)
-    val cleanedArtist = cleanArtist(artist)
+    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
 
     Timber.d("getLyrics: title='$title', artist='$artist', duration=$duration")
 

@@ -25,7 +25,7 @@ object CleanerRules {
 
   val VERSION_PATTERNS = listOf(
     Pair(Regex("""\b(remix|flip|bootleg|vip|re-edit|club mix|dub)\b""", RegexOption.IGNORE_CASE), VersionType.REMIX),
-    Pair(Regex("""\b(live|session|unplugged|in concert|at [a-zA-Z0-9\s]+)\b""", RegexOption.IGNORE_CASE), VersionType.LIVE),
+    Pair(Regex("""\b(live|session|unplugged|in concert|live at [a-zA-Z0-9\s]+)\b""", RegexOption.IGNORE_CASE), VersionType.LIVE),
     Pair(Regex("""\b(acoustic|orchestral|symphonic)\b""", RegexOption.IGNORE_CASE), VersionType.ACOUSTIC),
     Pair(Regex("""\b(remaster|remastered|deluxe|anniversary)\b""", RegexOption.IGNORE_CASE), VersionType.REMASTER),
     Pair(Regex("""\b(instrumental|karaoke)\b""", RegexOption.IGNORE_CASE), VersionType.INSTRUMENTAL),

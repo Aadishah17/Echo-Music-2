@@ -65,8 +65,7 @@ object LrcLib {
     title: String,
     album: String? = null,
   ): List<Track> {
-    val cleanedTitle = cleanTitle(title)
-    val cleanedArtist = cleanArtist(artist)
+    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
 
     // Strategy 1: Search with cleaned title and artist
     var results =
