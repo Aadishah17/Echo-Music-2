@@ -38,7 +38,8 @@ include(
     ":usbaudio",
     ":metadata",
     ":dsp-core",
-    ":audio-dsp"
+    ":audio-dsp",
+    ":domain"
 )
 
 
