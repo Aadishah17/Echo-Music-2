@@ -27,6 +27,7 @@ class StandbyCrossfadeSchedulerImpl(
   private var nextMediaItem: MediaItem? = null
   private var crossfadeDurationMs: Long = 0L
   private var standbyPlayerInstance: ExoPlayer? = null
+  private var standbyListener: Player.Listener? = null
   private var crossfadeJob: Job? = null
   private var prepStartTimeMs: Long = 0L
 
@@ -66,6 +67,14 @@ class StandbyCrossfadeSchedulerImpl(
       standby.volume = 0f
       standby.playWhenReady = false
 
+      val listener = object : Player.Listener {
+        override fun onPlaybackStateChanged(playbackState: Int) {
+          this@StandbyCrossfadeSchedulerImpl.onStandbyPlayerStateChanged(playbackState)
+        }
+      }
+      standbyListener = listener
+      standby.addListener(listener)
+
       // Check immediate state or wait for listener
       if (standby.playbackState == Player.STATE_READY) {
         onStandbyPlayerStateChanged(Player.STATE_READY)
@@ -98,8 +107,11 @@ class StandbyCrossfadeSchedulerImpl(
     }
   }
 
+  private var activePrimaryPlayer: ExoPlayer? = null
+
   private fun startCrossfade(primaryPlayer: ExoPlayer) {
     val standby = standbyPlayerInstance ?: return
+    activePrimaryPlayer = primaryPlayer
     _isCrossfading.value = true
     standby.playWhenReady = true
 
@@ -124,7 +136,10 @@ class StandbyCrossfadeSchedulerImpl(
       _armedState.value = ArmedStatus.Idle
       val outgoing = primaryPlayer
       val incoming = standby
+      standbyListener?.let { incoming.removeListener(it) }
+      standbyListener = null
       standbyPlayerInstance = null
+      activePrimaryPlayer = null
       onCrossfadeSwapped?.invoke(outgoing, incoming)
     }
   }
@@ -134,12 +149,21 @@ class StandbyCrossfadeSchedulerImpl(
     crossfadeJob = null
     _isCrossfading.value = false
     _armedState.value = ArmedStatus.Idle
-    standbyPlayerInstance?.let {
+    activePrimaryPlayer?.let {
       try {
-        it.stop()
-        it.clearMediaItems()
+        it.volume = 1.0f
       } catch (_: Exception) {}
     }
+    activePrimaryPlayer = null
+    standbyPlayerInstance?.let {
+      try {
+        standbyListener?.let { l -> it.removeListener(l) }
+        it.stop()
+        it.clearMediaItems()
+        it.release()
+      } catch (_: Exception) {}
+    }
+    standbyListener = null
     standbyPlayerInstance = null
   }
 

@@ -4430,8 +4430,20 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     if (targetIndex == C.INDEX_UNSET) return
     val targetMediaId = player.getMediaItemAt(targetIndex).mediaId
 
+    val startTime = android.os.SystemClock.elapsedRealtime()
     val secPlayer = createExoPlayer()
     secPlayer.addListener(secondaryPlayerListener)
+    secPlayer.addListener(object : Player.Listener {
+      override fun onPlaybackStateChanged(playbackState: Int) {
+        if (playbackState == Player.STATE_READY) {
+          val bufferTime = android.os.SystemClock.elapsedRealtime() - startTime
+          if (bufferTime > 0) {
+            preArmManager.recordPreparationDuration(bufferTime)
+          }
+          secPlayer.removeListener(this)
+        }
+      }
+    })
 
     val itemCount = player.mediaItemCount
     val items = mutableListOf<MediaItem>()
@@ -4453,7 +4465,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     secPlayer.shuffleModeEnabled = savedShuffleEnabled
     secPlayer.prepare() // playWhenReady left false: buffers ahead without playing.
 
-    prebuffered = PrebufferedTransition(secPlayer, plan, targetMediaId)
+    prebuffered = PrebufferedTransition(secPlayer, plan, targetMediaId, startTime)
   }
 
   private fun startCrossfade(plan: AutomixPlan? = null) {
@@ -4480,10 +4492,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val secPlayer: ExoPlayer
     if (pb != null && pb.targetMediaId == targetMediaId) {
       // Already buffered ahead of time — adopt it instead of cold-starting a new one.
-      val prepDuration = System.currentTimeMillis() - pb.prepStartTimeMs
-      if (prepDuration > 0) {
-        preArmManager.recordPreparationDuration(prepDuration)
-      }
       secPlayer = pb.player
       activeAutomixPlan = pb.plan
       prebuffered = null
@@ -4678,18 +4686,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
               break
             }
 
-            val progress = i / steps.toFloat()
-            // Fade-out then fade-in with a gentle dip: the outgoing track drops away
-            // over the first ~60% of the blend, the incoming rises over the last ~60%,
-            // so they overlap only through the middle where both sit well below full.
-            // Old track leaves, new one arrives — no sudden level match, no boost.
-            // Both curves are cosine/sine eased, so the ramp stays click-free.
-            val fadeOut = equalPowerOut(0f, 0.6f, progress)
-            val fadeIn = equalPowerIn(0.4f, 1f, progress)
+            val progress = (i / steps.toFloat()).coerceIn(0f, 1f)
+            val gains = echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(progress)
 
             try {
-              player.volume = startVolume * fadeIn
-              fadingPlayer?.volume = startVolume * fadeOut
+              player.volume = startVolume * gains.incomingGain
+              fadingPlayer?.volume = startVolume * gains.outgoingGain
             } catch (e: Exception) {
               break
             }

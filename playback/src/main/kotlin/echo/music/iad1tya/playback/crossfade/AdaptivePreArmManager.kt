@@ -14,11 +14,13 @@ class AdaptivePreArmManager(
   private val slowPrepThresholdMs: Long = 8_000L
 ) {
 
+  @Volatile
   var currentLeadTimeMs: Long = baseLeadTimeMs
     private set
 
   private val recentPrepTimes = mutableListOf<Long>()
 
+  @Synchronized
   fun recordPreparationDuration(durationMs: Long) {
     recentPrepTimes.add(durationMs)
     if (recentPrepTimes.size > 5) {
@@ -39,6 +41,7 @@ class AdaptivePreArmManager(
     }
   }
 
+  @Synchronized
   fun reset() {
     currentLeadTimeMs = baseLeadTimeMs
     recentPrepTimes.clear()
