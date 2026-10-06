@@ -76,61 +76,12 @@ object Paxsenix {
     get() =
       client ?: throw IllegalStateException("Paxsenix.init() must be called before using Paxsenix")
 
-  private val titleCleanupPatterns =
-    listOf(
-      Regex(
-        """\s*\(.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\)""",
-        RegexOption.IGNORE_CASE
-      ),
-      Regex(
-        """\s*\[.*?(official|video|audio|lyrics|lyric|visualizer|hd|hq|4k|remaster|remix|live|acoustic|version|edit|extended|radio|clean|explicit).*?\]""",
-        RegexOption.IGNORE_CASE
-      ),
-      Regex("""\s*【.*?】"""),
-      Regex("""\s*\|.*$"""),
-      Regex(
-        """\s*-\s*(official|video|audio|lyrics|lyric|visualizer).*$""",
-        RegexOption.IGNORE_CASE
-      ),
-      Regex("""\s*\(feat\..*?\)""", RegexOption.IGNORE_CASE),
-      Regex("""\s*\(ft\..*?\)""", RegexOption.IGNORE_CASE),
-      Regex("""\s*feat\..*$""", RegexOption.IGNORE_CASE),
-      Regex("""\s*ft\..*$""", RegexOption.IGNORE_CASE),
-      Regex("""\s*\([^)]*\d{4}[^)]*\)""", RegexOption.IGNORE_CASE),
-    )
-
-  private val artistSeparators =
-    listOf(
-      " & ",
-      " and ",
-      ", ",
-      " x ",
-      " X ",
-      " feat. ",
-      " feat ",
-      " ft. ",
-      " ft ",
-      " featuring ",
-      " with "
-    )
-
-  private fun cleanTitle(title: String): String {
-    var cleaned = title.trim()
-    for (pattern in titleCleanupPatterns) {
-      cleaned = cleaned.replace(pattern, "")
-    }
-    return cleaned.trim()
+  private fun cleanTitle(title: String, artist: String = ""): String {
+    return com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery().first
   }
 
-  private fun cleanArtist(artist: String): String {
-    var cleaned = artist.trim()
-    for (separator in artistSeparators) {
-      if (cleaned.contains(separator, ignoreCase = true)) {
-        cleaned = cleaned.split(separator, ignoreCase = true, limit = 2)[0]
-        break
-      }
-    }
-    return cleaned.trim()
+  private fun cleanArtist(artist: String, title: String = ""): String {
+    return com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery().second
   }
 
   private suspend fun search(query: String): List<SearchResult> =

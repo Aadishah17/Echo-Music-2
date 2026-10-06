@@ -54,8 +54,7 @@ object Unison {
     album: String?,
     durationSeconds: Int,
   ): UnisonEntry? {
-    val cleanTitle = title.trim()
-    val cleanArtist = artist.trim()
+    val (cleanTitle, cleanArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
 
     if (cleanTitle.isBlank() || cleanArtist.isBlank()) return null
 
@@ -119,8 +118,7 @@ object Unison {
     album: String?,
     durationSeconds: Int,
   ): List<UnisonEntry> {
-    val cleanTitle = title.trim()
-    val cleanArtist = artist.trim()
+    val (cleanTitle, cleanArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
     if (cleanTitle.isBlank() || cleanArtist.isBlank()) return emptyList()
 
     logger?.invoke("Searching Unison lyrics: title=$cleanTitle, artist=$cleanArtist")
