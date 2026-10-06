@@ -58,11 +58,16 @@ class ChunkingDataSource(
     }
 
     var attempts = 0
+    var lastException: Exception? = null
+
     while (attempts <= maxRetries) {
       val bytes =
         try {
           upstream.read(buffer, offset, readLength)
-        } catch (_: Exception) {
+        } catch (e: java.io.InterruptedIOException) {
+          throw e
+        } catch (e: Exception) {
+          lastException = e
           -1
         }
 
@@ -90,6 +95,7 @@ class ChunkingDataSource(
             return C.RESULT_END_OF_INPUT
           }
           attempts++
+          lastException = e
           if (attempts > maxRetries) throw e
           false
         } catch (e: androidx.media3.datasource.DataSourceException) {
@@ -98,12 +104,13 @@ class ChunkingDataSource(
             return C.RESULT_END_OF_INPUT
           }
           attempts++
+          lastException = e
           if (attempts > maxRetries) throw e
           false
         } catch (e: Exception) {
           attempts++
+          lastException = e
           if (attempts > maxRetries) {
-            if (bytesToRead == C.LENGTH_UNSET.toLong()) return C.RESULT_END_OF_INPUT
             throw IOException("Failed to reconnect chunk after $maxRetries retries", e)
           }
           false
@@ -113,7 +120,10 @@ class ChunkingDataSource(
         val nextBytes =
           try {
             upstream.read(buffer, offset, readLength)
-          } catch (_: Exception) {
+          } catch (e: java.io.InterruptedIOException) {
+            throw e
+          } catch (e: Exception) {
+            lastException = e
             -1
           }
 
@@ -142,8 +152,13 @@ class ChunkingDataSource(
     }
 
     if (bytesToRead != C.LENGTH_UNSET.toLong() && bytesReadTotal < bytesToRead) {
-      throw IOException("Premature EOF: expected $bytesToRead bytes, but only received $bytesReadTotal bytes after $maxRetries retries")
+      throw IOException(
+        "Premature EOF: expected $bytesToRead bytes, but only received $bytesReadTotal bytes after $maxRetries retries",
+        lastException
+      )
     }
+
+    lastException?.let { throw IOException("Failed to read chunk after $maxRetries retries", it) }
 
     return C.RESULT_END_OF_INPUT
   }
