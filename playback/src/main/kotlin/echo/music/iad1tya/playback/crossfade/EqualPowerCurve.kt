@@ -5,15 +5,21 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Equal-power sine/cosine volume ramps for crossfading. [t] is normalized progress in [0, 1] and
- * the results are linear volume multipliers in [0, 1] where `outgoing^2 + incoming^2` is always
- * 1.0, so acoustic power never dips mid-fade. Non-finite input yields 0f rather than NaN.
+ * Computes constant acoustic power volume curves using equal-power sine/cosine.
+ * Outgoing: cos(t * PI / 2)
+ * Incoming: sin(t * PI / 2)
+ *
+ * Guaranteed: cos^2 + sin^2 = 1.0 (constant acoustic power, eliminating center volume dip).
  */
 object EqualPowerCurve {
 
-  fun outgoing(t: Float): Float = if (t.isFinite()) cos(clamp(t) * (PI / 2.0)).toFloat() else 0f
+  data class Gains(val outgoingGain: Float, val incomingGain: Float)
 
-  fun incoming(t: Float): Float = if (t.isFinite()) sin(clamp(t) * (PI / 2.0)).toFloat() else 0f
-
-  private fun clamp(t: Float): Double = t.coerceIn(0.0f, 1.0f).toDouble()
+  fun calculateGains(progress: Float): Gains {
+    val clamped = progress.coerceIn(0.0f, 1.0f)
+    val angle = clamped * (PI.toFloat() / 2.0f)
+    val outgoing = cos(angle)
+    val incoming = sin(angle)
+    return Gains(outgoingGain = outgoing, incomingGain = incoming)
+  }
 }
