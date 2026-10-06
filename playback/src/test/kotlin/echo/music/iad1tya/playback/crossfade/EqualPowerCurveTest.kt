@@ -40,4 +40,12 @@ class EqualPowerCurveTest {
     assertEquals(EqualPowerCurve.incoming(0.0f), EqualPowerCurve.incoming(-3.0f), 1e-6f)
     assertEquals(EqualPowerCurve.incoming(1.0f), EqualPowerCurve.incoming(99.0f), 1e-6f)
   }
+
+  @Test
+  fun testNonFiniteProgressYieldsSafeGainInsteadOfNaN() {
+    assertEquals(0.0f, EqualPowerCurve.outgoing(Float.NaN), 0.0f)
+    assertEquals(0.0f, EqualPowerCurve.incoming(Float.NaN), 0.0f)
+    assertEquals(0.0f, EqualPowerCurve.outgoing(Float.POSITIVE_INFINITY), 0.0f)
+    assertEquals(0.0f, EqualPowerCurve.incoming(Float.NEGATIVE_INFINITY), 0.0f)
+  }
 }

@@ -2,10 +2,21 @@ package echo.music.iad1tya.playback.crossfade
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdaptivePreArmManagerTest {
+  @Test
+  fun testConstructorRejectsInconsistentConfiguration() {
+    assertThrows(IllegalArgumentException::class.java) {
+      AdaptivePreArmManager(baseLeadTimeMs = 40_000L, maxLeadTimeMs = 35_000L)
+    }
+    assertThrows(IllegalArgumentException::class.java) {
+      AdaptivePreArmManager(slowPrepThresholdMs = 0L)
+    }
+  }
+
   @Test
   fun testFreshManagerStartsAtBaseLeadTime() {
     assertEquals(20_000L, AdaptivePreArmManager().currentLeadTimeMs())
