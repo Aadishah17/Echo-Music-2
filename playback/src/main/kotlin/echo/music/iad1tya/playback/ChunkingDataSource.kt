@@ -132,11 +132,17 @@ class ChunkingDataSource(
       if (attempts <= maxRetries) {
         try {
           Thread.sleep((attempts * 50L).coerceAtMost(250L))
-        } catch (_: InterruptedException) {
+        } catch (e: InterruptedException) {
           Thread.currentThread().interrupt()
-          break
+          throw java.io.InterruptedIOException("Interrupted during chunk retry backoff").apply {
+            initCause(e)
+          }
         }
       }
+    }
+
+    if (bytesToRead != C.LENGTH_UNSET.toLong() && bytesReadTotal < bytesToRead) {
+      throw IOException("Premature EOF: expected $bytesToRead bytes, but only received $bytesReadTotal bytes after $maxRetries retries")
     }
 
     return C.RESULT_END_OF_INPUT

@@ -139,7 +139,7 @@ class PlayerConnection(
     mediaMetadata.flatMapLatest { mediaMetadata -> database.format(mediaMetadata?.id) }
 
   val duration: kotlinx.coroutines.flow.StateFlow<Long> =
-    mediaMetadata.map { meta ->
+    combine(mediaMetadata, playbackState) { meta, _ ->
       val canonicalSeconds = meta?.duration ?: 0
       if (canonicalSeconds > 0) {
         canonicalSeconds * 1000L

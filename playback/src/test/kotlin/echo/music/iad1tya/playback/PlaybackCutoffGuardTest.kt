@@ -23,6 +23,19 @@ class PlaybackCutoffGuardTest {
   }
 
   @Test
+  fun testAllowEndWhenPlayerDurationMatchesCurrentPosition() {
+    guard.onTrackChanged("song_with_longer_metadata")
+    // Metadata says 210,000ms (e.g. YouTube video length or metadata inaccuracy),
+    // but actual audio stream decoder duration is 195,000ms, and current position is 194,000ms (1s difference <= 3000ms).
+    val decision = guard.verifyTrackCompletion(
+      currentPositionMs = 194000L,
+      canonicalDurationMs = 210000L,
+      playerDurationMs = 195000L
+    )
+    assertEquals(CutoffDecision.AllowEnd, decision)
+  }
+
+  @Test
   fun testAllowEndWhenDurationUnknownOrNonPositive() {
     guard.onTrackChanged("song_live")
     assertEquals(CutoffDecision.AllowEnd, guard.verifyTrackCompletion(1000L, -1L))

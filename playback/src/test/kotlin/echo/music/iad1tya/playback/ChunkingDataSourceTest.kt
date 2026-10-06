@@ -186,4 +186,38 @@ class ChunkingDataSourceTest {
     assertEquals(100, totalRead)
     assertArrayEquals(sampleData, output)
   }
+
+  @Test(expected = IOException::class)
+  fun testPrematureEofExhaustsRetriesAndThrowsIOException() {
+    val sampleData = ByteArray(100) { it.toByte() }
+    val upstream = object : DataSource {
+      var offset = 0
+      override fun addTransferListener(transferListener: TransferListener) {}
+      override fun open(dataSpec: DataSpec): Long {
+        offset = dataSpec.position.toInt()
+        val remaining = (sampleData.size - offset).toLong()
+        return if (dataSpec.length != C.LENGTH_UNSET.toLong()) minOf(dataSpec.length, remaining) else remaining
+      }
+      override fun read(buffer: ByteArray, offset: Int, readLength: Int): Int {
+        // Always simulate premature EOF at 40 bytes
+        if (this.offset >= 40) return C.RESULT_END_OF_INPUT
+        val canRead = minOf(readLength, 40 - this.offset)
+        System.arraycopy(sampleData, this.offset, buffer, offset, canRead)
+        this.offset += canRead
+        return canRead
+      }
+      override fun getUri(): Uri? = null
+      override fun close() {}
+    }
+
+    val chunkingSource = ChunkingDataSource(upstream, chunkSize = 20, maxRetries = 2)
+    val spec = DataSpec.Builder().setUri(Uri.parse("https://example.com/audio")).setLength(100L).build()
+    chunkingSource.open(spec)
+
+    val buf = ByteArray(15)
+    while (true) {
+      val read = chunkingSource.read(buf, 0, buf.size)
+      if (read == C.RESULT_END_OF_INPUT) break
+    }
+  }
 }

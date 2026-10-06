@@ -2491,14 +2491,22 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   ) {
 
     if (playbackState == Player.STATE_ENDED) {
+      val isCasting = castConnectionHandler?.isCasting?.value == true
+      val isSleepTimerStopping = ::sleepTimer.isInitialized && sleepTimer.pauseWhenSongEnd
       val currentItem = player.currentMediaItem
       val canonicalDurationMs = (currentItem?.metadata?.duration ?: 0) * 1000L
       val currentPos = player.currentPosition
+      val playerDur = player.duration
 
-      val decision = cutoffGuard.verifyTrackCompletion(
-        currentPositionMs = currentPos,
-        canonicalDurationMs = canonicalDurationMs
-      )
+      val decision = if (!isCasting && !isSleepTimerStopping) {
+        cutoffGuard.verifyTrackCompletion(
+          currentPositionMs = currentPos,
+          canonicalDurationMs = canonicalDurationMs,
+          playerDurationMs = playerDur
+        )
+      } else {
+        CutoffDecision.AllowEnd
+      }
 
       if (decision is CutoffDecision.RecoverPrematureCutoff) {
         Timber.tag(TAG).w(
@@ -2638,7 +2646,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             checkAndSubmitListenBrainzFinished()
             listenBrainzCurrentMediaId = mediaId
             listenBrainzCurrentStartTs = System.currentTimeMillis()
-            scrobbleManager?.onSongStart(player.currentMetadata, duration = player.duration)
+            scrobbleManager?.onSongStart(player.currentMetadata, duration = safeDur)
           }
           checkAndSubmitListenBrainzPlayingNow(mediaId)
         }

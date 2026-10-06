@@ -23,11 +23,21 @@ class PlaybackCutoffGuard(
    */
   fun verifyTrackCompletion(
     currentPositionMs: Long,
-    canonicalDurationMs: Long
+    canonicalDurationMs: Long,
+    playerDurationMs: Long = -1L
   ): CutoffDecision {
+    // If decoder/player duration is known and positive, and the current position has reached it,
+    // the stream has genuinely ended according to the media source container/demuxer.
+    val safePosition = currentPositionMs.coerceAtLeast(0L)
+    if (playerDurationMs > 0L) {
+      val playerDiscrepancy = playerDurationMs - safePosition
+      if (playerDiscrepancy <= thresholdMs) {
+        return CutoffDecision.AllowEnd
+      }
+    }
+
     if (canonicalDurationMs <= 0L) return CutoffDecision.AllowEnd
 
-    val safePosition = currentPositionMs.coerceAtLeast(0L)
     val discrepancy = canonicalDurationMs - safePosition
     return if (discrepancy > thresholdMs && retryCount < maxRetriesPerTrack) {
       retryCount++
