@@ -13,6 +13,11 @@ class AdaptivePreArmManager(
   val maxLeadTimeMs: Long = 35_000L,
   private val slowPrepThresholdMs: Long = 8_000L
 ) {
+  init {
+    require(baseLeadTimeMs > 0) { "baseLeadTimeMs must be positive" }
+    require(slowPrepThresholdMs > 0) { "slowPrepThresholdMs must be positive" }
+    require(maxLeadTimeMs >= baseLeadTimeMs) { "maxLeadTimeMs must be at least baseLeadTimeMs" }
+  }
 
   @Volatile
   var currentLeadTimeMs: Long = baseLeadTimeMs

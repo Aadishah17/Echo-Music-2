@@ -102,7 +102,7 @@ class StandbyCrossfadeSchedulerImpl(
   }
 
   override fun triggerCrossfadeNow(primaryPlayer: ExoPlayer) {
-    if (!_isCrossfading.value) {
+    if (!_isCrossfading.value && _armedState.value is ArmedStatus.Armed) {
       startCrossfade(primaryPlayer)
     }
   }
@@ -111,6 +111,7 @@ class StandbyCrossfadeSchedulerImpl(
 
   private fun startCrossfade(primaryPlayer: ExoPlayer) {
     val standby = standbyPlayerInstance ?: return
+    if (_isCrossfading.value) return
     activePrimaryPlayer = primaryPlayer
     _isCrossfading.value = true
     standby.playWhenReady = true
@@ -130,6 +131,12 @@ class StandbyCrossfadeSchedulerImpl(
 
         delay(20L)
       }
+
+      // Reset volume levels before handing off
+      try {
+        primaryPlayer.volume = 1.0f
+        standby.volume = 1.0f
+      } catch (_: Exception) {}
 
       // Finish crossfade & perform swap
       _isCrossfading.value = false

@@ -4755,8 +4755,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     const val CHUNK_LENGTH = 512 * 1024L
     const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     const val PERSISTENT_AUTOMIX_FILE = "persistent_automix.data"
-    /** How far ahead of the crossfade trigger to start buffering the incoming track. */
-    const val PREBUFFER_LEAD_MS = 10000L
     const val PERSISTENT_PLAYER_STATE_FILE = "persistent_player_state.data"
     const val MAX_CONSECUTIVE_ERR = 5
     const val MAX_RETRY_COUNT = 10

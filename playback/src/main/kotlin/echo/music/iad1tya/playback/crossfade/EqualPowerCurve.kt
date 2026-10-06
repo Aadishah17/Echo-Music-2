@@ -16,7 +16,8 @@ object EqualPowerCurve {
   data class Gains(val outgoingGain: Float, val incomingGain: Float)
 
   fun calculateGains(progress: Float): Gains {
-    val clamped = progress.coerceIn(0.0f, 1.0f)
+    val safeProgress = if (progress.isFinite()) progress else 0.0f
+    val clamped = safeProgress.coerceIn(0.0f, 1.0f)
     val angle = clamped * (PI.toFloat() / 2.0f)
     val outgoing = cos(angle)
     val incoming = sin(angle)
