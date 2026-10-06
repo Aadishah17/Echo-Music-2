@@ -438,6 +438,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private val playerSilenceProcessors = HashMap<Player, SilenceDetectorAudioProcessor>()
   private val playerDuckProcessors = HashMap<Player, AutomixDuckAudioProcessor>()
   private val playerStereoWideners = HashMap<Player, StereoWidenerAudioProcessor>()
+  private val playerEqProcessors = HashMap<Player, CustomEqualizerAudioProcessor>()
 
   private val instantSilenceSkipEnabled = MutableStateFlow(false)
 
@@ -1293,6 +1294,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     playerSilenceProcessors[player] = silenceProcessor
     playerDuckProcessors[player] = duckProcessor
     playerStereoWideners[player] = stereoWidener
+    playerEqProcessors[player] = eqProcessor
 
     player.apply {
       runBlocking {
@@ -3728,6 +3730,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     player.removeListener(sleepTimer)
     playerSilenceProcessors.remove(player)
     playerStereoWideners.remove(player)
+    playerEqProcessors.remove(player)?.let { dspController.removeAudioProcessor(it) }
 
     player.release()
     discordUpdateJob?.cancel()
@@ -4398,6 +4401,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     playerDuckProcessors.remove(pb.player)
     playerSilenceProcessors.remove(pb.player)
     playerStereoWideners.remove(pb.player)
+    playerEqProcessors.remove(pb.player)?.let { dspController.removeAudioProcessor(it) }
     try {
       pb.player.removeListener(secondaryPlayerListener)
       pb.player.stop()
@@ -4730,6 +4734,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
     fadingPlayer?.let { playerDuckProcessors.remove(it) }
     fadingPlayer?.let { playerStereoWideners.remove(it) }
+    fadingPlayer?.let { playerEqProcessors.remove(it)?.let { eq -> dspController.removeAudioProcessor(eq) } }
     fadingPlayer?.stop()
     fadingPlayer?.clearMediaItems()
     fadingPlayer?.release()
