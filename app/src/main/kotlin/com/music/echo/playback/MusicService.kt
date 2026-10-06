@@ -265,6 +265,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private var crossfadeDuration = 5000f
   private var crossfadeGapless = true
   private var crossfadeTriggerJob: Job? = null
+  private val preArmManager by lazy { echo.music.iad1tya.playback.crossfade.AdaptivePreArmManager() }
 
   private var automixEnabled = false
   private var activeAutomixPlan: AutomixPlan? = null
@@ -274,6 +275,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val player: ExoPlayer,
     val plan: AutomixPlan?,
     val targetMediaId: String,
+    val prepStartTimeMs: Long = System.currentTimeMillis()
   )
 
   private var prebuffered: PrebufferedTransition? = null
@@ -4040,11 +4042,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           if (player.currentMediaItem?.mediaId != targetMediaId) return@launch
           val remaining = triggerTime - player.currentPosition
           if (remaining <= 0) break
-          if (!prebufferStarted && remaining <= PREBUFFER_LEAD_MS) {
+          val leadTime = preArmManager.currentLeadTimeMs
+          if (!prebufferStarted && remaining <= leadTime) {
             prebufferStarted = true
             prebufferSecondaryPlayer(plan)
           }
-          delay(minOf(remaining, 250L))
+          delay(minOf(remaining, 100L))
         }
         if (
           isActive &&
@@ -4477,6 +4480,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val secPlayer: ExoPlayer
     if (pb != null && pb.targetMediaId == targetMediaId) {
       // Already buffered ahead of time — adopt it instead of cold-starting a new one.
+      val prepDuration = System.currentTimeMillis() - pb.prepStartTimeMs
+      if (prepDuration > 0) {
+        preArmManager.recordPreparationDuration(prepDuration)
+      }
       secPlayer = pb.player
       activeAutomixPlan = pb.plan
       prebuffered = null
@@ -4645,16 +4652,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         val outDuck = fadingPlayer?.let { playerDuckProcessors[it] }
         val inDuck = playerDuckProcessors[player]
 
-        // Equal-power curve: sin/cos gains keep combined signal energy ~constant
-        // through the blend, so linearly summing two tracks doesn't dip in
-        // perceived loudness at the midpoint the way linear/smoothstep gain does.
+        // Equal-power curve: delegate to EqualPowerCurve for constant acoustic power
         fun equalPowerIn(edge0: Float, edge1: Float, x: Float): Float {
           val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
-          return kotlin.math.sin(t * (Math.PI / 2.0).toFloat())
+          return echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(t).incomingGain
         }
         fun equalPowerOut(edge0: Float, edge1: Float, x: Float): Float {
           val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
-          return kotlin.math.cos(t * (Math.PI / 2.0).toFloat())
+          return echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(t).outgoingGain
         }
 
         try {
