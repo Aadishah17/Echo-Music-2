@@ -57,14 +57,13 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeTestRingBufferFlush(JNIEnv* /* env
 
 JNIEXPORT jobject JNICALL
 Java_echo_music_usbaudio_UsbAudioDriver_nativeParseDescriptors(JNIEnv* env, jobject /* thiz */, jbyteArray descriptors) {
-    if (!descriptors) return nullptr;
-
-    jsize len = env->GetArrayLength(descriptors);
-    if (len == 0) return nullptr;
-
-    jbyte* bytes = env->GetByteArrayElements(descriptors, nullptr);
-    auto caps = echo::music::usbaudio::DescriptorParser::parse(reinterpret_cast<const uint8_t*>(bytes), static_cast<size_t>(len));
-    env->ReleaseByteArrayElements(descriptors, bytes, JNI_ABORT);
+    echo::music::usbaudio::ParsedDacCapabilities caps;
+    jsize len = descriptors ? env->GetArrayLength(descriptors) : 0;
+    if (len > 0) {
+        jbyte* bytes = env->GetByteArrayElements(descriptors, nullptr);
+        caps = echo::music::usbaudio::DescriptorParser::parse(reinterpret_cast<const uint8_t*>(bytes), static_cast<size_t>(len));
+        env->ReleaseByteArrayElements(descriptors, bytes, JNI_ABORT);
+    }
 
     // Build List<DacFormat>
     jclass listClass = env->FindClass("java/util/ArrayList");
@@ -155,12 +154,18 @@ Java_echo_music_usbaudio_UsbAudioDriver_nativeCalculateNominalPacketSamples(JNIE
 
 JNIEXPORT jint JNICALL
 Java_echo_music_usbaudio_UsbAudioDriver_nativeStartStream(JNIEnv* /* env */, jobject /* thiz */,
-                                                          jint fd, jint dataEp, jint syncEp,
+                                                          jint fd, jint interfaceNumber, jint altSetting,
+                                                          jint dataEp, jint syncEp,
                                                           jint sampleRate, jint bitDepth, jint channels) {
-    return g_stream_engine.startStream(fd, dataEp, syncEp,
+    return g_stream_engine.startStream(fd, interfaceNumber, altSetting, dataEp, syncEp,
                                        static_cast<uint32_t>(sampleRate),
                                        static_cast<uint32_t>(bitDepth),
                                        static_cast<uint32_t>(channels));
+}
+
+JNIEXPORT jint JNICALL
+Java_echo_music_usbaudio_UsbAudioDriver_nativeGetAvailableWrite(JNIEnv* /* env */, jobject /* thiz */) {
+    return static_cast<jint>(g_stream_engine.availableWrite());
 }
 
 JNIEXPORT jint JNICALL

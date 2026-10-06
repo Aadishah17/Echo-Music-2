@@ -65,6 +65,6 @@ class UsbDacAudioSinkTest {
     sink.setVolume(0.5f)
 
     sink.flush()
-    org.junit.Assert.assertEquals(0L, sink.getCurrentPositionUs(false))
+    org.junit.Assert.assertEquals(androidx.media3.exoplayer.audio.AudioSink.CURRENT_POSITION_NOT_SET, sink.getCurrentPositionUs(false))
   }
 }

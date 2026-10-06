@@ -137,6 +137,7 @@ class UsbDacManager(
             connectDevice(device)
         } else {
             _activeDacFlow.value = DacDeviceState.PermissionRequired(device)
+            requestPermission(device)
         }
     }
 
@@ -171,6 +172,9 @@ class UsbDacManager(
     private fun disconnectCurrent() {
         val current = _activeDacFlow.value
         if (current is DacDeviceState.Connected) {
+            try {
+                driver.stopStream()
+            } catch (_: Exception) {}
             try {
                 current.connection.close()
             } catch (_: Exception) {}

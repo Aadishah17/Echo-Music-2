@@ -64,48 +64,48 @@ ParsedDacCapabilities DescriptorParser::parse(const uint8_t* data, size_t size) 
                 }
             }
         } else if (descType == USB_DT_CS_INTERFACE) {
-            if (descLen < 3) continue;
-            uint8_t subtype = descData[2];
+            if (descLen >= 3) {
+                uint8_t subtype = descData[2];
 
-            if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOCONTROL) {
-                if (caps.uacVersion == 2 && subtype == UAC2_CLOCK_SOURCE && descLen >= sizeof(Uac2ClockSourceDescriptor)) {
-                    const auto* cs = reinterpret_cast<const Uac2ClockSourceDescriptor*>(descData);
-                    caps.clockSourceId = cs->bClockID;
-                    // Standard sample rates supported by typical UAC2 clocks
-                    allSampleRates.insert(44100);
-                    allSampleRates.insert(48000);
-                    allSampleRates.insert(88200);
-                    allSampleRates.insert(96000);
-                    allSampleRates.insert(176400);
-                    allSampleRates.insert(192000);
-                } else if (subtype == UAC_FEATURE_UNIT && descLen >= 6) {
-                    caps.hasHardwareVolume = true;
-                    caps.volumeFeatureUnitId = descData[3];
-                }
-            } else if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOSTREAMING) {
-                if (subtype == UAC_FORMAT_TYPE && currentFormat.has_value()) {
-                    if (descLen < 4) continue;
-                    uint8_t formatType = descData[3];
-                    if (formatType == UAC_FORMAT_TYPE_I) {
-                        if (caps.uacVersion == 2 && descLen >= sizeof(Uac2FormatTypeIDescriptor)) {
-                            const auto* f2 = reinterpret_cast<const Uac2FormatTypeIDescriptor*>(descData);
-                            currentFormat->subslotBytes = f2->bSubslotSize;
-                            currentFormat->bitDepth = f2->bBitResolution;
-                        } else if (descLen >= sizeof(Uac1FormatTypeIDescriptor)) {
-                            const auto* f1 = reinterpret_cast<const Uac1FormatTypeIDescriptor*>(descData);
-                            currentFormat->channels = f1->bNrChannels;
-                            currentFormat->subslotBytes = f1->bSubFrameSize;
-                            currentFormat->bitDepth = f1->bBitResolution;
+                if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOCONTROL) {
+                    if (caps.uacVersion == 2 && subtype == UAC2_CLOCK_SOURCE && descLen >= sizeof(Uac2ClockSourceDescriptor)) {
+                        const auto* cs = reinterpret_cast<const Uac2ClockSourceDescriptor*>(descData);
+                        caps.clockSourceId = cs->bClockID;
+                        // Standard sample rates supported by typical UAC2 clocks
+                        allSampleRates.insert(44100);
+                        allSampleRates.insert(48000);
+                        allSampleRates.insert(88200);
+                        allSampleRates.insert(96000);
+                        allSampleRates.insert(176400);
+                        allSampleRates.insert(192000);
+                    } else if (subtype == UAC_FEATURE_UNIT && descLen >= 6) {
+                        caps.hasHardwareVolume = true;
+                        caps.volumeFeatureUnitId = descData[3];
+                    }
+                } else if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOSTREAMING) {
+                    if (subtype == UAC_FORMAT_TYPE && currentFormat.has_value() && descLen >= 4) {
+                        uint8_t formatType = descData[3];
+                        if (formatType == UAC_FORMAT_TYPE_I) {
+                            if (caps.uacVersion == 2 && descLen >= sizeof(Uac2FormatTypeIDescriptor)) {
+                                const auto* f2 = reinterpret_cast<const Uac2FormatTypeIDescriptor*>(descData);
+                                currentFormat->subslotBytes = f2->bSubslotSize;
+                                currentFormat->bitDepth = f2->bBitResolution;
+                            } else if (descLen >= sizeof(Uac1FormatTypeIDescriptor)) {
+                                const auto* f1 = reinterpret_cast<const Uac1FormatTypeIDescriptor*>(descData);
+                                currentFormat->channels = f1->bNrChannels;
+                                currentFormat->subslotBytes = f1->bSubFrameSize;
+                                currentFormat->bitDepth = f1->bBitResolution;
 
-                            uint8_t samFreqType = f1->bSamFreqType;
-                            if (samFreqType > 0 && descLen >= 8 + samFreqType * 3) {
-                                for (uint8_t i = 0; i < samFreqType; ++i) {
-                                    size_t freqOffset = 8 + i * 3;
-                                    uint32_t freq = static_cast<uint32_t>(descData[freqOffset]) |
-                                                    (static_cast<uint32_t>(descData[freqOffset + 1]) << 8) |
-                                                    (static_cast<uint32_t>(descData[freqOffset + 2]) << 16);
-                                    currentFormat->sampleRates.push_back(freq);
-                                    allSampleRates.insert(freq);
+                                uint8_t samFreqType = f1->bSamFreqType;
+                                if (samFreqType > 0 && descLen >= 8 + samFreqType * 3) {
+                                    for (uint8_t i = 0; i < samFreqType; ++i) {
+                                        size_t freqOffset = 8 + i * 3;
+                                        uint32_t freq = static_cast<uint32_t>(descData[freqOffset]) |
+                                                        (static_cast<uint32_t>(descData[freqOffset + 1]) << 8) |
+                                                        (static_cast<uint32_t>(descData[freqOffset + 2]) << 16);
+                                        currentFormat->sampleRates.push_back(freq);
+                                        allSampleRates.insert(freq);
+                                    }
                                 }
                             }
                         }

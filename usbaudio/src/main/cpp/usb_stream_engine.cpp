@@ -5,6 +5,7 @@
 #include <android/log.h>
 #include <cstring>
 #include <algorithm>
+#include <cmath>
 
 #define LOG_TAG "UsbStreamEngine"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -22,23 +23,101 @@ uint32_t UsbStreamEngine::calculateNominalPacketSamples(uint32_t sampleRate) {
     return sampleRate / MICROFRAMES_PER_SEC;
 }
 
-int UsbStreamEngine::startStream(int fd, int dataEp, int syncEp, uint32_t sampleRate, uint32_t bitDepth, uint32_t channels) {
+int UsbStreamEngine::startStream(
+    int fd,
+    int interfaceNumber,
+    int altSetting,
+    int dataEp,
+    int syncEp,
+    uint32_t sampleRate,
+    uint32_t bitDepth,
+    uint32_t channels
+) {
     if (streaming_.load(std::memory_order_relaxed)) {
         stopStream();
     }
 
     fd_ = fd;
+    interface_number_ = interfaceNumber;
+    alt_setting_ = altSetting;
     data_ep_ = dataEp;
     sync_ep_ = syncEp;
     sample_rate_ = sampleRate;
     bit_depth_ = bitDepth;
     channels_ = channels;
 
+    if (fd_ >= 0 && interfaceNumber >= 0) {
+        // Detach kernel audio driver if active
+        struct usbdevfs_ioctl ctl{};
+        ctl.ifno = interfaceNumber;
+        ctl.ioctl_code = USBDEVFS_DISCONNECT;
+        ctl.data = nullptr;
+        ioctl(fd_, USBDEVFS_IOCTL, &ctl);
+
+        // Claim AudioStreaming interface
+        int ifno = interfaceNumber;
+        if (ioctl(fd_, USBDEVFS_CLAIMINTERFACE, &ifno) < 0 && errno != EBUSY) {
+            LOGE("Failed to claim interface %d: %s", ifno, strerror(errno));
+            return -errno;
+        }
+
+        // Select alternate setting with isochronous audio endpoint
+        struct usbdevfs_setinterface setif{};
+        setif.interface = static_cast<unsigned int>(interfaceNumber);
+        setif.altsetting = static_cast<unsigned int>(altSetting);
+        if (ioctl(fd_, USBDEVFS_SETINTERFACE, &setif) < 0) {
+            LOGE("Failed to set alternate setting %d on interface %d: %s", altSetting, interfaceNumber, strerror(errno));
+            return -errno;
+        }
+
+        // Configure sample rate via standard UAC control requests
+        struct usbdevfs_ctrltransfer ctrl{};
+        uint8_t rate_bytes3[3] = {
+            static_cast<uint8_t>(sampleRate & 0xFF),
+            static_cast<uint8_t>((sampleRate >> 8) & 0xFF),
+            static_cast<uint8_t>((sampleRate >> 16) & 0xFF)
+        };
+        ctrl.bRequestType = 0x22; // Class, Endpoint, Host-to-Device
+        ctrl.bRequest = 0x01;     // SET_CUR
+        ctrl.wValue = 0x0100;     // SAMPLING_FREQ_CONTROL
+        ctrl.wIndex = static_cast<uint16_t>(dataEp);
+        ctrl.wLength = 3;
+        ctrl.timeout = 1000;
+        ctrl.data = rate_bytes3;
+        if (ioctl(fd_, USBDEVFS_CONTROL, &ctrl) < 0) {
+            // Fallback for UAC2 clock source SET_CUR
+            uint8_t rate_bytes4[4] = {
+                static_cast<uint8_t>(sampleRate & 0xFF),
+                static_cast<uint8_t>((sampleRate >> 8) & 0xFF),
+                static_cast<uint8_t>((sampleRate >> 16) & 0xFF),
+                static_cast<uint8_t>((sampleRate >> 24) & 0xFF)
+            };
+            ctrl.bRequestType = 0x21; // Class, Interface, Host-to-Device
+            ctrl.bRequest = 0x01;     // SET_CUR
+            ctrl.wValue = 0x0100;     // CS_SAM_FREQ_CONTROL
+            ctrl.wIndex = static_cast<uint16_t>(interfaceNumber);
+            ctrl.wLength = 4;
+            ctrl.timeout = 1000;
+            ctrl.data = rate_bytes4;
+            ioctl(fd_, USBDEVFS_CONTROL, &ctrl);
+        }
+    }
+
     bytes_per_sample_ = (bitDepth + 7) / 8;
     bytes_per_frame_ = bytes_per_sample_ * channels_;
 
-    // Pacing fraction in 16.16 fixed point: (sample_rate / 8000) << 16
-    fractional_step_ = static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) << 16) / MICROFRAMES_PER_SEC);
+    // Query bus speed: Full-Speed (1 ms frames = 1000 intervals/sec) vs High-Speed (125 µs = 8000 microframes/sec)
+    uint32_t intervals_per_sec = MICROFRAMES_PER_SEC;
+    if (fd_ >= 0) {
+        int speed = ioctl(fd_, USBDEVFS_GET_SPEED);
+        if (speed == 2 /* USB_SPEED_FULL */ || speed == 1 /* USB_SPEED_LOW */) {
+            intervals_per_sec = 1000;
+        }
+    }
+    intervals_per_sec_ = intervals_per_sec;
+
+    // Pacing fraction in 16.16 fixed point: (sample_rate << 16) / intervals_per_sec
+    fractional_step_ = static_cast<uint32_t>((static_cast<uint64_t>(sampleRate) << 16) / intervals_per_sec_);
     fractional_accum_ = 0;
     feedback_rate_q16_ = fractional_step_;
 
@@ -49,8 +128,8 @@ int UsbStreamEngine::startStream(int fd, int dataEp, int syncEp, uint32_t sample
     streaming_.store(true, std::memory_order_release);
     stream_thread_ = std::thread(&UsbStreamEngine::streamLoop, this);
 
-    LOGI("Started stream: SR=%u, bitDepth=%u, channels=%u, dataEp=0x%02x, syncEp=0x%02x",
-         sampleRate, bitDepth, channels, dataEp, syncEp);
+    LOGI("Started stream: SR=%u, bitDepth=%u, channels=%u, intervalsPerSec=%u, dataEp=0x%02x, syncEp=0x%02x",
+         sampleRate, bitDepth, channels, intervals_per_sec_, dataEp, syncEp);
     return 0;
 }
 
@@ -70,10 +149,27 @@ int UsbStreamEngine::stopStream() {
                 ioctl(fd_, USBDEVFS_DISCARDURB, ctx.urb());
             }
         }
+        for (auto& ctx : sync_urbs_) {
+            if (ctx.submitted) {
+                ioctl(fd_, USBDEVFS_DISCARDURB, ctx.urb());
+            }
+        }
+
         // Reap all discarded URBs until drained so kernel holds no stale references
-        usbdevfs_urb* reaped_urb = nullptr;
-        while (ioctl(fd_, USBDEVFS_REAPURBNDELAY, &reaped_urb) == 0 && reaped_urb != nullptr) {
-            // drained
+        size_t pending = 0;
+        for (const auto& ctx : data_urbs_) if (ctx.submitted) ++pending;
+        for (const auto& ctx : sync_urbs_) if (ctx.submitted) ++pending;
+
+        while (pending > 0) {
+            usbdevfs_urb* reaped_urb = nullptr;
+            if (ioctl(fd_, USBDEVFS_REAPURB, &reaped_urb) != 0) {
+                if (errno == EINTR) continue;
+                break; // ENODEV: device gone or disconnected
+            }
+            if (reaped_urb && reaped_urb->usercontext) {
+                static_cast<UrbContext*>(reaped_urb->usercontext)->submitted = false;
+            }
+            --pending;
         }
     }
 
@@ -94,13 +190,14 @@ void UsbStreamEngine::streamLoop() {
     param.sched_priority = 2; // Real-time priority
     pthread_setschedparam(pthread_self(), SCHED_FIFO, &param);
 
-    // Max packet size calculation: e.g. for 384kHz 32-bit stereo -> 48 samples * 8 bytes = 384 bytes
-    const uint32_t max_samples_per_pkt = (sample_rate_ + MICROFRAMES_PER_SEC - 1) / MICROFRAMES_PER_SEC + 4;
+    const uint32_t max_samples_per_pkt = (sample_rate_ + intervals_per_sec_ - 1) / intervals_per_sec_ + 4;
     const uint32_t max_packet_size = max_samples_per_pkt * bytes_per_frame_;
     const uint32_t urb_buffer_size = max_packet_size * PACKETS_PER_URB;
     const size_t urb_storage_size = sizeof(usbdevfs_urb) + sizeof(usbdevfs_iso_packet_desc) * PACKETS_PER_URB;
 
     data_urbs_.resize(NUM_URBS);
+    bool any_submitted = false;
+
     for (auto& ctx : data_urbs_) {
         ctx.urb_storage.assign(urb_storage_size, 0);
         ctx.buffer.assign(urb_buffer_size, 0);
@@ -123,8 +220,43 @@ void UsbStreamEngine::streamLoop() {
         if (fd_ >= 0) {
             if (ioctl(fd_, USBDEVFS_SUBMITURB, u) == 0) {
                 ctx.submitted = true;
+                any_submitted = true;
             }
         }
+    }
+
+    // Submit sync feedback URBs if explicit feedback IN endpoint exists
+    if (sync_ep_ > 0) {
+        const size_t sync_storage_size = sizeof(usbdevfs_urb) + sizeof(usbdevfs_iso_packet_desc);
+        sync_urbs_.resize(2);
+        for (auto& sctx : sync_urbs_) {
+            sctx.urb_storage.assign(sync_storage_size, 0);
+            sctx.buffer.assign(4, 0);
+            sctx.submitted = false;
+
+            usbdevfs_urb* su = sctx.urb();
+            su->type = USBDEVFS_URB_TYPE_ISO;
+            su->endpoint = static_cast<unsigned char>(sync_ep_ | 0x80);
+            su->buffer = sctx.buffer.data();
+            su->buffer_length = 4;
+            su->number_of_packets = 1;
+            su->usercontext = &sctx;
+            su->iso_frame_desc[0].length = 4;
+            su->iso_frame_desc[0].actual_length = 0;
+            su->iso_frame_desc[0].status = 0;
+
+            if (fd_ >= 0) {
+                if (ioctl(fd_, USBDEVFS_SUBMITURB, su) == 0) {
+                    sctx.submitted = true;
+                }
+            }
+        }
+    }
+
+    if (fd_ >= 0 && !any_submitted) {
+        LOGE("Failed to submit initial URBs on endpoint 0x%02x: %s", data_ep_, strerror(errno));
+        streaming_.store(false, std::memory_order_release);
+        return;
     }
 
     while (streaming_.load(std::memory_order_relaxed)) {
@@ -146,6 +278,35 @@ void UsbStreamEngine::streamLoop() {
             auto* ctx = static_cast<UrbContext*>(reaped_urb->usercontext);
             ctx->submitted = false;
 
+            // Handle sync endpoint feedback packets
+            if (sync_ep_ > 0 && reaped_urb->endpoint == static_cast<unsigned char>(sync_ep_ | 0x80)) {
+                const uint8_t* sptr = ctx->buffer.data();
+                if (intervals_per_sec_ == 1000) {
+                    // Full-Speed: 10.14 format (3 bytes)
+                    uint32_t raw_fb = static_cast<uint32_t>(sptr[0]) |
+                                     (static_cast<uint32_t>(sptr[1]) << 8) |
+                                     (static_cast<uint32_t>(sptr[2]) << 16);
+                    if (raw_fb > 0) {
+                        feedback_rate_q16_ = (raw_fb << 2);
+                    }
+                } else {
+                    // High-Speed: 16.16 format (4 bytes)
+                    uint32_t raw_fb = static_cast<uint32_t>(sptr[0]) |
+                                     (static_cast<uint32_t>(sptr[1]) << 8) |
+                                     (static_cast<uint32_t>(sptr[2]) << 16) |
+                                     (static_cast<uint32_t>(sptr[3]) << 24);
+                    if (raw_fb > 0) {
+                        feedback_rate_q16_ = raw_fb;
+                    }
+                }
+                reaped_urb->iso_frame_desc[0].actual_length = 0;
+                reaped_urb->iso_frame_desc[0].status = 0;
+                if (ioctl(fd_, USBDEVFS_SUBMITURB, reaped_urb) == 0) {
+                    ctx->submitted = true;
+                }
+                continue;
+            }
+
             usbdevfs_urb* u = ctx->urb();
 
             // Fill next URB packets from ring buffer
@@ -153,7 +314,7 @@ void UsbStreamEngine::streamLoop() {
             int total_length = 0;
 
             for (size_t p = 0; p < PACKETS_PER_URB; ++p) {
-                // Determine sample count for this microframe (using fractional accumulator)
+                // Determine sample count for this interval
                 fractional_accum_ += feedback_rate_q16_;
                 uint32_t samples_to_send = fractional_accum_ >> 16;
                 fractional_accum_ &= 0xFFFF;
@@ -179,6 +340,24 @@ void UsbStreamEngine::streamLoop() {
                         for (size_t i = 0; i < sample_count; ++i) {
                             double scaled = static_cast<double>(samples[i]) * mult;
                             samples[i] = static_cast<int16_t>(std::clamp(scaled, -32768.0, 32767.0));
+                        }
+                    } else if (bytes_per_sample_ == 3) { // 24-bit packed PCM
+                        size_t sample_count = bytes_to_send / 3;
+                        for (size_t i = 0; i < sample_count; ++i) {
+                            size_t idx = i * 3;
+                            int32_t sample = static_cast<int32_t>(
+                                (static_cast<uint32_t>(ptr[idx])) |
+                                (static_cast<uint32_t>(ptr[idx + 1]) << 8) |
+                                (static_cast<uint32_t>(ptr[idx + 2]) << 16)
+                            );
+                            if (sample & 0x00800000) {
+                                sample |= 0xFF000000;
+                            }
+                            double scaled = static_cast<double>(sample) * mult;
+                            int32_t clamped = static_cast<int32_t>(std::clamp(scaled, -8388608.0, 8388607.0));
+                            ptr[idx] = static_cast<uint8_t>(clamped & 0xFF);
+                            ptr[idx + 1] = static_cast<uint8_t>((clamped >> 8) & 0xFF);
+                            ptr[idx + 2] = static_cast<uint8_t>((clamped >> 16) & 0xFF);
                         }
                     } else if (bytes_per_sample_ == 4) { // 32-bit PCM
                         auto* samples = reinterpret_cast<int32_t*>(ptr);
@@ -206,8 +385,8 @@ void UsbStreamEngine::streamLoop() {
                 ctx->submitted = true;
             }
         } else {
-            // Small sleep (125 microseconds = 1 microframe) to avoid CPU pegging when idle
-            usleep(125);
+            // Sleep 1 interval period if idle to avoid CPU pegging
+            usleep(intervals_per_sec_ == 1000 ? 1000 : 125);
         }
     }
 }

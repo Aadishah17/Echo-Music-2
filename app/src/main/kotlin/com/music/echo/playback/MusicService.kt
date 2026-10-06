@@ -1240,7 +1240,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
   }
 
-  private fun createExoPlayer(isPrimary: Boolean = true): ExoPlayer {
+  private fun createExoPlayer(): ExoPlayer {
     val eqProcessor = CustomEqualizerAudioProcessor()
     equalizerService.addAudioProcessor(eqProcessor)
 
@@ -1261,7 +1261,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       ExoPlayer.Builder(this)
         .setMediaSourceFactory(createMediaSourceFactory())
         .setRenderersFactory(
-          createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor, stereoWidener, isPrimary)
+          createRenderersFactory(eqProcessor, silenceProcessor, duckProcessor, stereoWidener)
         )
         .setLoadControl(
           DefaultLoadControl.Builder()
@@ -3517,7 +3517,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     silenceProcessor: SilenceDetectorAudioProcessor,
     duckProcessor: AutomixDuckAudioProcessor,
     stereoWidener: StereoWidenerAudioProcessor,
-    isPrimary: Boolean = true,
   ) =
     object : DefaultRenderersFactory(this) {
       override fun buildAudioSink(
@@ -3541,10 +3540,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             ),
           )
           .build()
-
-        if (!isPrimary) {
-          return defaultSink
-        }
 
         val usbSink = UsbDacAudioSink(
           driver = usbAudioDriver,
@@ -4432,7 +4427,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     if (targetIndex == C.INDEX_UNSET) return
     val targetMediaId = player.getMediaItemAt(targetIndex).mediaId
 
-    val secPlayer = createExoPlayer(isPrimary = false)
+    val secPlayer = createExoPlayer()
     secPlayer.addListener(secondaryPlayerListener)
 
     val itemCount = player.mediaItemCount
@@ -4488,7 +4483,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     } else {
       releasePrebuffered() // stale — buffered for a track that's no longer next.
 
-      secPlayer = createExoPlayer(isPrimary = false)
+      secPlayer = createExoPlayer()
       secPlayer.addListener(secondaryPlayerListener)
 
       val itemCount = player.mediaItemCount

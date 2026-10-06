@@ -25,6 +25,8 @@ class UsbDacAudioSink(
     private var playing = false
     private var isStreamEnded = false
     private var isStreaming = false
+    private var activeStreamFd: Int = -1
+    private var startMediaTimeUs: Long = AudioSink.CURRENT_POSITION_NOT_SET
     private var inputFormat: Format? = null
     private var volume = 1.0f
     private var framesWrittenJvm: Long = 0L
@@ -127,14 +129,17 @@ class UsbDacAudioSink(
     }
 
     override fun getCurrentPositionUs(sourceEnded: Boolean): Long {
+        if (startMediaTimeUs == AudioSink.CURRENT_POSITION_NOT_SET) {
+            return AudioSink.CURRENT_POSITION_NOT_SET
+        }
         val sampleRate = inputFormat?.sampleRate ?: 44100
-        if (sampleRate <= 0) return 0L
+        if (sampleRate <= 0) return startMediaTimeUs
         val frames = if (driver.isLoaded() && isStreaming) {
             driver.getFramesPlayed()
         } else {
             framesWrittenJvm
         }
-        return (frames * 1_000_000L) / sampleRate
+        return startMediaTimeUs + (frames * 1_000_000L) / sampleRate
     }
 
     override fun configure(
@@ -145,6 +150,7 @@ class UsbDacAudioSink(
         this.inputFormat = inputFormat
         framesWrittenJvm = 0L
         isStreamEnded = false
+        startMediaTimeUs = AudioSink.CURRENT_POSITION_NOT_SET
     }
 
     override fun play() {
@@ -153,8 +159,14 @@ class UsbDacAudioSink(
     }
 
     private fun startStreamIfNeeded() {
-        if (isStreaming) return
         val connected = dacConnectionProvider?.invoke()
+        val currentFd = connected?.fileDescriptor ?: -1
+        if (isStreaming && (connected == null || currentFd != activeStreamFd)) {
+            driver.stopStream()
+            isStreaming = false
+            activeStreamFd = -1
+        }
+        if (isStreaming) return
         if (connected != null) {
             capabilities = connected.capabilities
             val format = inputFormat
@@ -175,21 +187,31 @@ class UsbDacAudioSink(
                 (format?.channelCount == null || format.channelCount == Format.NO_VALUE || fmt.channels == channels)
             } ?: capabilities.supportedFormats.firstOrNull()
 
+            val interfaceNumber = matching?.interfaceNumber ?: 0
+            val altSetting = matching?.altSetting ?: 1
             val dataEp = matching?.endpointAddress ?: 0x01
             val syncEp = matching?.syncEndpointAddress ?: -1
             val bitDepth = matching?.bitDepth ?: inputBitDepth
             activeDacBitDepth = bitDepth
 
+            // Use subslotBytes for container size (e.g. 24-bit audio inside 4-byte slot)
+            val subslot = matching?.subslotBytes ?: ((bitDepth + 7) / 8)
+            val containerBytes = if (subslot in 2..4) subslot else ((bitDepth + 7) / 8)
+            val streamBitDepth = containerBytes * 8
+
             val ret = driver.startStream(
                 fd = connected.fileDescriptor,
+                interfaceNumber = interfaceNumber,
+                altSetting = altSetting,
                 dataEp = dataEp,
                 syncEp = syncEp,
                 sampleRate = sampleRate,
-                bitDepth = bitDepth,
+                bitDepth = streamBitDepth,
                 channels = channels
             )
             if (ret == 0) {
                 isStreaming = true
+                activeStreamFd = connected.fileDescriptor
             } else {
                 listener?.onAudioSinkError(IllegalStateException("Failed to start USB audio stream: $ret"))
             }
@@ -211,6 +233,10 @@ class UsbDacAudioSink(
             return false // Stream hasn't started yet; backpressure until ready
         }
 
+        if (startMediaTimeUs == AudioSink.CURRENT_POSITION_NOT_SET && presentationTimeUs != C.TIME_UNSET) {
+            startMediaTimeUs = presentationTimeUs
+        }
+
         val remaining = buffer.remaining()
         val startPos = buffer.position()
         if (scratchBuffer.size < remaining) {
@@ -224,33 +250,50 @@ class UsbDacAudioSink(
             C.ENCODING_PCM_32BIT -> 32
             else -> 16
         }
-        val targetBitDepth = if (activeDacBitDepth > 0) activeDacBitDepth else inputBitDepth
+
+        val matching = capabilities.supportedFormats.firstOrNull { fmt ->
+            (inputFormat?.sampleRate == null || inputFormat?.sampleRate == Format.NO_VALUE || fmt.sampleRates.isEmpty() || fmt.sampleRates.contains(inputFormat!!.sampleRate)) &&
+            (inputFormat?.channelCount == null || inputFormat?.channelCount == Format.NO_VALUE || fmt.channels == channels)
+        } ?: capabilities.supportedFormats.firstOrNull()
+
+        val subslot = matching?.subslotBytes ?: ((activeDacBitDepth + 7) / 8)
+        val containerBytes = if (subslot in 2..4) subslot else ((activeDacBitDepth + 7) / 8)
+        val targetContainerBitDepth = if (containerBytes in 2..4) containerBytes * 8 else inputBitDepth
 
         val pcmToSend: ByteArray
         val bytesToSend: Int
-        if (targetBitDepth == inputBitDepth) {
+        if (targetContainerBitDepth == inputBitDepth) {
             pcmToSend = scratchBuffer
             bytesToSend = remaining
         } else {
-            pcmToSend = convertPcm(scratchBuffer, 0, remaining, inputBitDepth, targetBitDepth)
+            pcmToSend = convertPcm(scratchBuffer, 0, remaining, inputBitDepth, targetContainerBitDepth)
             val inputFrameBytes = channels * (inputBitDepth / 8)
             val numFrames = remaining / maxOf(1, inputFrameBytes)
-            bytesToSend = numFrames * channels * (targetBitDepth / 8)
+            bytesToSend = numFrames * channels * (targetContainerBitDepth / 8)
         }
 
-        val written = driver.writeAudio(pcmToSend, bytesToSend)
-        val frameBytes = maxOf(1, channels * (inputBitDepth / 8))
+        val inputFrameBytes = maxOf(1, channels * (inputBitDepth / 8))
+        val targetFrameBytes = maxOf(1, channels * (targetContainerBitDepth / 8))
 
-        if (written < bytesToSend) {
-            val targetFrameBytes = maxOf(1, channels * (targetBitDepth / 8))
-            val framesWritten = maxOf(0, written) / targetFrameBytes
-            val inputBytesConsumed = framesWritten * frameBytes
-            buffer.position(startPos + inputBytesConsumed)
-            framesWrittenJvm += framesWritten
-            return false // Backpressure: ring buffer full, retry on next cycle
+        // Clamp to available ring buffer capacity rounded down to whole target frames
+        val available = driver.getAvailableWrite()
+        val maxSafeBytes = (available / targetFrameBytes) * targetFrameBytes
+        if (maxSafeBytes <= 0) {
+            buffer.position(startPos)
+            return false // Backpressure: no complete frame can fit
         }
 
-        framesWrittenJvm += remaining / frameBytes
+        val toSend = minOf(bytesToSend, maxSafeBytes)
+        val written = driver.writeAudio(pcmToSend, toSend)
+
+        val framesWritten = maxOf(0, written) / targetFrameBytes
+        val inputBytesConsumed = framesWritten * inputFrameBytes
+        buffer.position(startPos + inputBytesConsumed)
+        framesWrittenJvm += framesWritten
+
+        if (inputBytesConsumed < remaining) {
+            return false // Backpressure: retry remainder on next cycle
+        }
         return true
     }
 
@@ -297,6 +340,7 @@ class UsbDacAudioSink(
         driver.flushStream()
         framesWrittenJvm = 0L
         isStreamEnded = false
+        startMediaTimeUs = AudioSink.CURRENT_POSITION_NOT_SET
     }
 
     override fun reset() {
@@ -308,5 +352,7 @@ class UsbDacAudioSink(
         playing = false
         isStreamEnded = false
         inputFormat = null
+        activeStreamFd = -1
+        startMediaTimeUs = AudioSink.CURRENT_POSITION_NOT_SET
     }
 }

@@ -35,6 +35,8 @@ public:
     /**
      * Starts isochronous streaming loop.
      * @param fd Open Linux file descriptor from UsbDeviceConnection.getFileDescriptor()
+     * @param interfaceNumber AudioStreaming interface number to claim
+     * @param altSetting Alternate setting with active audio streaming endpoints
      * @param dataEp Endpoint address for data OUT
      * @param syncEp Endpoint address for explicit feedback IN (-1 if none)
      * @param sampleRate e.g. 44100, 48000, 96000, 192000
@@ -42,7 +44,11 @@ public:
      * @param channels e.g. 2
      * @return 0 on success, negative errno on failure
      */
-    int startStream(int fd, int dataEp, int syncEp, uint32_t sampleRate, uint32_t bitDepth, uint32_t channels);
+    int startStream(int fd, int interfaceNumber, int altSetting, int dataEp, int syncEp, uint32_t sampleRate, uint32_t bitDepth, uint32_t channels);
+
+    int startStream(int fd, int dataEp, int syncEp, uint32_t sampleRate, uint32_t bitDepth, uint32_t channels) {
+        return startStream(fd, 0, 1, dataEp, syncEp, sampleRate, bitDepth, channels);
+    }
 
     /**
      * Stops streaming loop and releases URB resources.
@@ -54,6 +60,8 @@ public:
      * Called from producer thread.
      */
     size_t writeAudio(const uint8_t* buffer, size_t size);
+
+    [[nodiscard]] size_t availableWrite() const { return ring_buffer_.availableWrite(); }
 
     void setVolumeMultiplier(double multiplier) {
         volume_multiplier_.store(multiplier, std::memory_order_relaxed);
@@ -92,6 +100,8 @@ private:
     std::thread stream_thread_;
 
     int fd_{-1};
+    int interface_number_{0};
+    int alt_setting_{1};
     int data_ep_{0};
     int sync_ep_{-1};
     uint32_t sample_rate_{44100};
@@ -99,6 +109,7 @@ private:
     uint32_t channels_{2};
     uint32_t bytes_per_sample_{2};
     uint32_t bytes_per_frame_{4};
+    uint32_t intervals_per_sec_{MICROFRAMES_PER_SEC};
 
     // Fractional sample pacing accumulator for asynchronous DACs without sync EP (fixed point 16.16)
     uint32_t fractional_step_{0};

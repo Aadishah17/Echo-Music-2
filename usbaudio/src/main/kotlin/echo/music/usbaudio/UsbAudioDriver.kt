@@ -188,6 +188,8 @@ class UsbAudioDriver {
      */
     fun startStream(
         fd: Int,
+        interfaceNumber: Int = 0,
+        altSetting: Int = 1,
         dataEp: Int,
         syncEp: Int = -1,
         sampleRate: Int,
@@ -195,7 +197,7 @@ class UsbAudioDriver {
         channels: Int = 2
     ): Int {
         if (nativeLoaded) {
-            return nativeStartStream(fd, dataEp, syncEp, sampleRate, bitDepth, channels)
+            return nativeStartStream(fd, interfaceNumber, altSetting, dataEp, syncEp, sampleRate, bitDepth, channels)
         }
         return 0
     }
@@ -218,6 +220,16 @@ class UsbAudioDriver {
             return nativeWriteAudio(buffer, size)
         }
         return testRingBufferWrite(if (size == buffer.size) buffer else buffer.copyOfRange(0, size))
+    }
+
+    /**
+     * Returns the remaining capacity in bytes that can be written to the ring buffer.
+     */
+    fun getAvailableWrite(): Int {
+        if (nativeLoaded) {
+            return nativeGetAvailableWrite()
+        }
+        return maxOf(0, 131072 - jvmTestBuffer.size())
     }
 
     /**
@@ -268,7 +280,17 @@ class UsbAudioDriver {
     private external fun nativeTestRingBufferFlush()
     private external fun nativeParseDescriptors(descriptors: ByteArray): DacCapabilities
     private external fun nativeCalculateNominalPacketSamples(sampleRate: Int): Int
-    private external fun nativeStartStream(fd: Int, dataEp: Int, syncEp: Int, sampleRate: Int, bitDepth: Int, channels: Int): Int
+    private external fun nativeStartStream(
+        fd: Int,
+        interfaceNumber: Int,
+        altSetting: Int,
+        dataEp: Int,
+        syncEp: Int,
+        sampleRate: Int,
+        bitDepth: Int,
+        channels: Int
+    ): Int
+    private external fun nativeGetAvailableWrite(): Int
     private external fun nativeStopStream(): Int
     private external fun nativeWriteAudio(buffer: ByteArray, size: Int): Int
     private external fun nativeSetVolumeMultiplier(multiplier: Double)
