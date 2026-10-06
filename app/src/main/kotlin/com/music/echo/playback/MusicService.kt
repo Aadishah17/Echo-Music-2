@@ -128,11 +128,11 @@ import echo.music.iad1tya.db.entities.Song
 import echo.music.iad1tya.di.DownloadCache
 import echo.music.iad1tya.di.PlayerCache
 import echo.music.iad1tya.echomusic.updater.downloadmanager.EchoNotificationProvider
-import echo.music.iad1tya.eq.EqualizerService
-import echo.music.iad1tya.eq.audio.AutomixDuckAudioProcessor
-import echo.music.iad1tya.eq.audio.CustomEqualizerAudioProcessor
-import echo.music.iad1tya.eq.audio.StereoWidenerAudioProcessor
-import echo.music.iad1tya.eq.data.EQProfileRepository
+import echo.music.dsp.audio.AutomixDuckAudioProcessor
+import echo.music.dsp.audio.CustomEqualizerAudioProcessor
+import echo.music.dsp.audio.StereoWidenerAudioProcessor
+import echo.music.dsp.controller.DspController
+import echo.music.dsp.data.EQProfileRepository
 import echo.music.iad1tya.playback.AudioSinkSelector
 import echo.music.usbaudio.UsbAudioDriver
 import echo.music.usbaudio.UsbDacAudioSink
@@ -225,7 +225,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   @Inject lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
 
-  @Inject lateinit var equalizerService: EqualizerService
+  @Inject lateinit var dspController: DspController
 
   @Inject lateinit var eqProfileRepository: EQProfileRepository
 
@@ -712,13 +712,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     scope.launch {
       eqProfileRepository.activeProfile.collect { profile ->
         if (profile != null) {
-          val result = equalizerService.applyProfile(profile)
+          val result = dspController.applyProfile(profile)
           if (result.isSuccess && player.playbackState == Player.STATE_READY && player.isPlaying) {
 
             player.seekTo(player.currentPosition)
           }
         } else {
-          equalizerService.disable()
+          dspController.disableEqualizer()
           if (player.playbackState == Player.STATE_READY && player.isPlaying) {
             player.seekTo(player.currentPosition)
           }
@@ -1244,7 +1244,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   private fun createExoPlayer(): ExoPlayer {
     val eqProcessor = CustomEqualizerAudioProcessor()
-    equalizerService.addAudioProcessor(eqProcessor)
+    dspController.addAudioProcessor(eqProcessor)
 
     val duckProcessor = AutomixDuckAudioProcessor()
 
