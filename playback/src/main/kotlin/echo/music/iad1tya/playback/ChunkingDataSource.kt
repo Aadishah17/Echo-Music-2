@@ -149,3 +149,12 @@ class ChunkingDataSource(
     upstream.close()
   }
 }
+
+class ChunkingDataSourceFactory(
+  private val upstreamFactory: DataSource.Factory,
+  private val chunkSize: Long = 5L * 1024 * 1024 // 5MB chunks
+) : DataSource.Factory {
+  override fun createDataSource(): DataSource {
+    return ChunkingDataSource(upstreamFactory.createDataSource(), chunkSize)
+  }
+}

@@ -934,7 +934,8 @@ fun BottomSheetPlayer(
         delay(200)
         if (sliderPosition == null) {
           position = playerConnection.player.currentPosition
-          duration = playerConnection.player.duration
+          val canonicalDur = (mediaMetadata?.duration ?: 0) * 1000L
+          duration = if (canonicalDur > 0L) canonicalDur else playerConnection.player.duration
         }
       }
     }
@@ -943,7 +944,8 @@ fun BottomSheetPlayer(
   LaunchedEffect(playbackState, mediaMetadata?.id) {
     if (!isCasting) {
       position = playerConnection.player.currentPosition
-      duration = playerConnection.player.duration
+      val canonicalDur = (mediaMetadata?.duration ?: 0) * 1000L
+      duration = if (canonicalDur > 0L) canonicalDur else playerConnection.player.duration
     }
   }
 
