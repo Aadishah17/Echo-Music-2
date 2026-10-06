@@ -128,4 +128,19 @@ class MetadataCleanerTest {
     assertEquals(VersionType.SLOWED, result.version?.type)
     assertEquals("Slowed + Reverb", result.version?.description)
   }
+
+  @Test
+  fun testBandNamesWithConjunctionsArePreservedInSearchQuery() {
+    val simon = MetadataCleaner.clean("The Sound of Silence", "Simon & Garfunkel")
+    assertEquals("The Sound of Silence", simon.cleanTitle)
+    assertEquals("Simon & Garfunkel", simon.toSearchQuery().second)
+
+    val earth = MetadataCleaner.clean("September", "Earth, Wind & Fire")
+    assertEquals("September", earth.cleanTitle)
+    assertEquals("Earth, Wind & Fire", earth.toSearchQuery().second)
+
+    val florence = MetadataCleaner.clean("Dog Days Are Over", "Florence and the Machine")
+    assertEquals("Dog Days Are Over", florence.cleanTitle)
+    assertEquals("Florence and the Machine", florence.toSearchQuery().second)
+  }
 }
