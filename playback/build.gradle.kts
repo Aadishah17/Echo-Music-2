@@ -18,6 +18,9 @@ android {
     create("gms") { dimension = "variant" }
     create("foss") { dimension = "variant" }
   }
+  testOptions {
+    unitTests.isReturnDefaultValues = true
+  }
 }
 
 kotlin { jvmToolchain(21) }
