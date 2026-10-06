@@ -27,7 +27,7 @@ if (hasGoogleServicesConfig) {
 android {
   namespace = "echo.music.iad1tya"
   compileSdk = 37
-  ndkVersion = "27.0.12077973"
+  ndkVersion = "27.1.12297006"
 
   defaultConfig {
     applicationId = "echo.music.iad1tya"
@@ -243,6 +243,7 @@ dependencies {
 
   implementation(project(":core"))
   implementation(project(":playback"))
+  implementation(project(":usbaudio"))
 
   // Firebase - GMS flavor only (excluded from F-Droid / FOSS builds)
   "gmsImplementation"(platform("com.google.firebase:firebase-bom:34.19.0"))
