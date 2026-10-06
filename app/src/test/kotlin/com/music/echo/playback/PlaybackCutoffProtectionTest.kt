@@ -39,15 +39,6 @@ class PlaybackCutoffProtectionTest {
 
   @Test
   fun testCanonicalDurationPrecedence() {
-    fun computeEffectiveDuration(metadata: MediaMetadata?, playerDuration: Long): Long {
-      val canonicalSeconds = metadata?.duration ?: 0
-      return if (canonicalSeconds > 0) {
-        canonicalSeconds * 1000L
-      } else {
-        if (playerDuration != C.TIME_UNSET && playerDuration > 0L) playerDuration else 0L
-      }
-    }
-
     val metadata = MediaMetadata(
       id = "test_song",
       title = "Test Song",
@@ -56,13 +47,13 @@ class PlaybackCutoffProtectionTest {
     )
 
     // When player decoder reports C.TIME_UNSET (-1), canonical metadata provides 245,000ms
-    assertEquals(245000L, computeEffectiveDuration(metadata, C.TIME_UNSET))
+    assertEquals(245000L, PlaybackCutoffGuard.computeEffectiveDuration(metadata.duration, C.TIME_UNSET))
 
     // When player decoder reports truncated 15,000ms during initial buffer, canonical duration is preserved
-    assertEquals(245000L, computeEffectiveDuration(metadata, 15000L))
+    assertEquals(245000L, PlaybackCutoffGuard.computeEffectiveDuration(metadata.duration, 15000L))
 
     // When metadata has duration 0 (e.g. live stream), player duration is used
     val liveMetadata = metadata.copy(duration = 0)
-    assertEquals(180000L, computeEffectiveDuration(liveMetadata, 180000L))
+    assertEquals(180000L, PlaybackCutoffGuard.computeEffectiveDuration(liveMetadata.duration, 180000L))
   }
 }

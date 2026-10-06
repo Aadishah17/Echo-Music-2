@@ -81,16 +81,22 @@ object MetadataCleaner {
 
       if (potentialTitle.isNotBlank()) {
         val isRightSideVersionOrJunk =
-          CleanerRules.VERSION_PATTERNS.any { it.first.containsMatchIn(potentialTitle) } ||
-          CleanerRules.JUNK_PATTERNS.any { it.containsMatchIn(potentialTitle) } ||
-          potentialTitle.startsWith("(") || potentialTitle.startsWith("[")
+          potentialTitle.startsWith("(") ||
+          potentialTitle.startsWith("[") ||
+          potentialTitle.startsWith("【") ||
+          potentialTitle.startsWith("「") ||
+          extractTagsAndVersions(potentialTitle).cleanedTitle.isBlank() ||
+          CleanerRules.VERSION_PATTERNS.any { it.first.matches(potentialTitle) } ||
+          CleanerRules.JUNK_PATTERNS.any { it.matches(potentialTitle) } ||
+          potentialTitle.matches(Regex("""(?i)\b(official\s+video|official\s+music\s+video|official\s+audio|music\s+video|lyric\s+video|lyrics\s+video|official\s+visualizer|visualizer|video|audio|mv|pv|hd|hq|4k|1080p|720p|60fps|uhd)\b"""))
 
         if (artist.isNotBlank()) {
-          if (potentialArtist.contains(artist, ignoreCase = true) ||
+          if (!isRightSideVersionOrJunk && (
+            potentialArtist.contains(artist, ignoreCase = true) ||
             artist.contains(potentialArtist, ignoreCase = true) ||
             artist.contains("Topic", ignoreCase = true) ||
             artist.contains("VEVO", ignoreCase = true)
-          ) {
+          )) {
             return TitleArtistSplit(potentialTitle, potentialArtist)
           }
         } else if (!isRightSideVersionOrJunk) {

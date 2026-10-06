@@ -27,18 +27,14 @@ class SongRepositoryImpl @Inject constructor(
 
   override fun getRecentlyPlayed(limit: Int): Flow<List<DomainSong>> {
     return database.events().map { events ->
-      events.mapNotNull { it.song?.toDomain() }.distinctBy { it.id }.take(limit)
+      events.map { it.song.toDomain() }.distinctBy { it.id }.take(limit)
     }
   }
 
   override suspend fun updateLiked(id: String, isLiked: Boolean) {
-    val existing = database.getSongById(id) ?: return
-    val updated = existing.song.copy(
-      liked = isLiked,
-      likedDate = if (isLiked) LocalDateTime.now() else null
-    )
+    val likedDate = if (isLiked) LocalDateTime.now() else null
     database.query {
-      update(updated)
+      updateLikedStatus(id, isLiked, likedDate)
     }
   }
 

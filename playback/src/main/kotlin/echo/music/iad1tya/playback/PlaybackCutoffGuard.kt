@@ -51,4 +51,15 @@ class PlaybackCutoffGuard(
   }
 
   fun getRetryCount(): Int = retryCount
+
+  companion object {
+    fun computeEffectiveDuration(canonicalDurationSeconds: Int?, playerDurationMs: Long): Long {
+      val canonicalSeconds = canonicalDurationSeconds ?: 0
+      return if (canonicalSeconds > 0) {
+        canonicalSeconds * 1000L
+      } else {
+        if (playerDurationMs != androidx.media3.common.C.TIME_UNSET && playerDurationMs > 0L) playerDurationMs else 0L
+      }
+    }
+  }
 }

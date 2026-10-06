@@ -134,9 +134,7 @@ int UsbStreamEngine::startStream(
 }
 
 int UsbStreamEngine::stopStream() {
-    if (!streaming_.exchange(false, std::memory_order_acq_rel)) {
-        return 0;
-    }
+    streaming_.store(false, std::memory_order_release);
 
     if (stream_thread_.joinable()) {
         stream_thread_.join();
@@ -170,6 +168,23 @@ int UsbStreamEngine::stopStream() {
                 static_cast<UrbContext*>(reaped_urb->usercontext)->submitted = false;
             }
             --pending;
+        }
+
+        // Restore USB interface: select altsetting 0, release interface, reconnect kernel driver
+        if (interface_number_ >= 0) {
+            struct usbdevfs_setinterface setif{};
+            setif.interface = static_cast<unsigned int>(interface_number_);
+            setif.altsetting = 0;
+            ioctl(fd_, USBDEVFS_SETINTERFACE, &setif);
+
+            int ifno = interface_number_;
+            ioctl(fd_, USBDEVFS_RELEASEINTERFACE, &ifno);
+
+            struct usbdevfs_ioctl ctl{};
+            ctl.ifno = interface_number_;
+            ctl.ioctl_code = USBDEVFS_CONNECT;
+            ctl.data = nullptr;
+            ioctl(fd_, USBDEVFS_IOCTL, &ctl);
         }
     }
 
@@ -281,24 +296,32 @@ void UsbStreamEngine::streamLoop() {
             // Handle sync endpoint feedback packets
             if (sync_ep_ > 0 && reaped_urb->endpoint == static_cast<unsigned char>(sync_ep_ | 0x80)) {
                 const uint8_t* sptr = ctx->buffer.data();
+                uint32_t raw_fb = 0;
                 if (intervals_per_sec_ == 1000) {
                     // Full-Speed: 10.14 format (3 bytes)
-                    uint32_t raw_fb = static_cast<uint32_t>(sptr[0]) |
-                                     (static_cast<uint32_t>(sptr[1]) << 8) |
-                                     (static_cast<uint32_t>(sptr[2]) << 16);
-                    if (raw_fb > 0) {
-                        feedback_rate_q16_ = (raw_fb << 2);
+                    uint32_t fb1014 = static_cast<uint32_t>(sptr[0]) |
+                                      (static_cast<uint32_t>(sptr[1]) << 8) |
+                                      (static_cast<uint32_t>(sptr[2]) << 16);
+                    if (fb1014 > 0) {
+                        raw_fb = (fb1014 << 2); // Convert to 16.16 format
                     }
                 } else {
                     // High-Speed: 16.16 format (4 bytes)
-                    uint32_t raw_fb = static_cast<uint32_t>(sptr[0]) |
-                                     (static_cast<uint32_t>(sptr[1]) << 8) |
-                                     (static_cast<uint32_t>(sptr[2]) << 16) |
-                                     (static_cast<uint32_t>(sptr[3]) << 24);
-                    if (raw_fb > 0) {
+                    raw_fb = static_cast<uint32_t>(sptr[0]) |
+                             (static_cast<uint32_t>(sptr[1]) << 8) |
+                             (static_cast<uint32_t>(sptr[2]) << 16) |
+                             (static_cast<uint32_t>(sptr[3]) << 24);
+                }
+
+                // Validate raw feedback against nominal rate (allow up to ±20% deviation)
+                if (raw_fb > 0 && fractional_step_ > 0) {
+                    uint32_t min_fb = fractional_step_ * 8 / 10;
+                    uint32_t max_fb = fractional_step_ * 12 / 10;
+                    if (raw_fb >= min_fb && raw_fb <= max_fb) {
                         feedback_rate_q16_ = raw_fb;
                     }
                 }
+
                 reaped_urb->iso_frame_desc[0].actual_length = 0;
                 reaped_urb->iso_frame_desc[0].status = 0;
                 if (ioctl(fd_, USBDEVFS_SUBMITURB, reaped_urb) == 0) {
@@ -318,6 +341,7 @@ void UsbStreamEngine::streamLoop() {
                 fractional_accum_ += feedback_rate_q16_;
                 uint32_t samples_to_send = fractional_accum_ >> 16;
                 fractional_accum_ &= 0xFFFF;
+                samples_to_send = std::min(samples_to_send, max_samples_per_pkt);
 
                 uint32_t bytes_to_send = samples_to_send * bytes_per_frame_;
                 size_t read_bytes = ring_buffer_.read(ptr, bytes_to_send);

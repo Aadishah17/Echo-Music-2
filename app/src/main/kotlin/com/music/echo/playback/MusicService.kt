@@ -254,7 +254,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private val usbDacManager by lazy {
     UsbDacManager(this, usbAudioDriver).apply {
       onDeviceDetachedCallback = {
-        player.pause()
+        if (isBitPerfectEnabled) {
+          player.pause()
+        }
       }
     }
   }
@@ -2514,9 +2516,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         Timber.tag(TAG).w(
           "Premature cutoff detected for ${currentItem?.mediaId}: pos=$currentPos ms, canonical=$canonicalDurationMs ms (retry #${decision.retryAttempt}). Recovering..."
         )
+        val shouldPlay = player.playWhenReady
         player.seekTo(decision.resumePositionMs)
         player.prepare()
-        player.play()
+        if (shouldPlay) {
+          player.play()
+        }
         return
       }
 

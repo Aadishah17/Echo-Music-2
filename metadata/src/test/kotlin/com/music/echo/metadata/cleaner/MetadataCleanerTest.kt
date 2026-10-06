@@ -100,6 +100,14 @@ class MetadataCleanerTest {
   }
 
   @Test
+  fun testArtistDashJunkDoesNotSplitJunkIntoTitle() {
+    val result = MetadataCleaner.clean("Alan Walker - Official Music Video", "Alan Walker - Topic")
+    assertEquals("Alan Walker", result.primaryArtist)
+    assertTrue("Title should not be set to junk", result.cleanTitle != "Official Music Video")
+  }
+
+
+  @Test
   fun testHtmlEntitiesAndSmartQuotes() {
     val result = MetadataCleaner.clean("Rock &amp; Roll &#39;King&#39; “Edition”", "Artist")
     assertEquals("Rock & Roll 'King' \"Edition\"", result.cleanTitle)

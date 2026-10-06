@@ -20,7 +20,16 @@ fun BitPerfectBadge(
     uacVersion: Int = 2,
     modifier: Modifier = Modifier
 ) {
-    val rateText = if (sampleRate >= 1000) "${sampleRate / 1000} kHz" else "$sampleRate Hz"
+    val rateText = when {
+        sampleRate >= 1000 -> {
+            if (sampleRate % 1000 == 0) {
+                "${sampleRate / 1000} kHz"
+            } else {
+                String.format(java.util.Locale.US, "%.1f kHz", sampleRate / 1000.0)
+            }
+        }
+        else -> "$sampleRate Hz"
+    }
     val badgeText = "Bit-Perfect • $bitDepth-bit / $rateText • UAC$uacVersion"
 
     Box(

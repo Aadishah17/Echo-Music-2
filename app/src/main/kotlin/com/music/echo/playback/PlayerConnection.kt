@@ -140,17 +140,12 @@ class PlayerConnection(
 
   val duration: kotlinx.coroutines.flow.StateFlow<Long> =
     combine(mediaMetadata, playbackState) { meta, _ ->
-      val canonicalSeconds = meta?.duration ?: 0
-      if (canonicalSeconds > 0) {
-        canonicalSeconds * 1000L
-      } else {
-        val playerDur = try {
-          player.duration
-        } catch (_: Exception) {
-          androidx.media3.common.C.TIME_UNSET
-        }
-        if (playerDur != androidx.media3.common.C.TIME_UNSET && playerDur > 0L) playerDur else 0L
+      val playerDur = try {
+        player.duration
+      } catch (_: Exception) {
+        androidx.media3.common.C.TIME_UNSET
       }
+      echo.music.iad1tya.playback.PlaybackCutoffGuard.computeEffectiveDuration(meta?.duration, playerDur)
     }.stateIn(scope, SharingStarted.Lazily, 0L)
 
   val queueTitle = MutableStateFlow<String?>(null)

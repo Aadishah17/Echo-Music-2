@@ -112,6 +112,19 @@ struct Uac2FormatTypeIDescriptor {
     uint8_t bBitResolution;
 };
 
+struct Uac2AsHeaderDescriptor {
+    uint8_t bLength;
+    uint8_t bDescriptorType;
+    uint8_t bDescriptorSubtype;
+    uint8_t bTerminalLink;
+    uint8_t bmControls;
+    uint8_t bFormatType;
+    uint32_t bmFormats;
+    uint8_t bNrChannels;
+    uint32_t bmChannelConfig;
+    uint8_t iChannelNames;
+};
+
 #pragma pack(pop)
 
 } // namespace echo::music::usbaudio

@@ -21,15 +21,11 @@ class GetQuickPicksUseCase(
 
       allCandidates
         .sortedByDescending { song ->
-          var score = 0.0
-          if (likedIds.contains(song.id)) {
-            score += 50.0
-          }
-          // Weight by total listening time in seconds (clamped to prevent extreme outliers)
+          val likedBonus = if (likedIds.contains(song.id)) 50.0 else 0.0
           val listeningSeconds = (song.totalPlayTimeMs / 1000.0).coerceAtMost(3600.0)
-          score += (listeningSeconds / 60.0) * 2.0 // +2 points per minute played up to 60 mins
+          val listeningScore = (listeningSeconds / 60.0) * 2.0 // +2 points per minute played up to 60 mins
 
-          score
+          likedBonus + listeningScore
         }
         .take(limit)
     }

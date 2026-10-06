@@ -32,8 +32,8 @@ class DspControllerImpl @Inject constructor() : DspController {
   private val _stereoWidth = MutableStateFlow(1f)
   override val stereoWidth: StateFlow<Float> = _stereoWidth.asStateFlow()
 
-  private var pendingProfile: SavedEQProfile? = null
-  private var shouldDisable: Boolean = false
+  @Volatile private var pendingProfile: SavedEQProfile? = null
+  @Volatile private var shouldDisable: Boolean = false
 
   companion object {
     private const val TAG = "DspController"
@@ -41,8 +41,7 @@ class DspControllerImpl @Inject constructor() : DspController {
 
   override fun getAudioProcessors(): List<AudioProcessor> {
     if (eqProcessors.isEmpty() && widenerProcessors.isEmpty() && duckProcessors.isEmpty()) {
-      val defaultTrio = createProcessors()
-      return defaultTrio.asList()
+      return emptyList()
     }
     val processors = mutableListOf<AudioProcessor>()
     eqProcessors.firstOrNull()?.let { processors.add(it) }

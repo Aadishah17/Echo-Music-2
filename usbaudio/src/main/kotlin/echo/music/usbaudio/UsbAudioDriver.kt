@@ -153,7 +153,7 @@ class UsbAudioDriver {
                 if (currentIfaceClass == 0x01 && currentIfaceSubClass == 0x01) {
                     if (uacVersion == 2 && subtype == 0x0A && len >= 8) { // UAC2_CLOCK_SOURCE
                         clockSourceId = data[offset + 3].toInt() and 0xFF
-                        sampleRates.addAll(listOf(44100, 48000, 88200, 96000, 176400, 192000))
+                        sampleRates.add(48000)
                     } else if (subtype == 0x06 && len >= 6) { // UAC_FEATURE_UNIT
                         hasHwVolume = true
                         volumeFuId = data[offset + 3].toInt() and 0xFF

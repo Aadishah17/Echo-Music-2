@@ -75,6 +75,9 @@ class StandbyCrossfadeSchedulerImpl(
       standbyListener = listener
       standby.addListener(listener)
 
+      standby.setMediaItem(targetItem)
+      standby.prepare()
+
       // Check immediate state or wait for listener
       if (standby.playbackState == Player.STATE_READY) {
         onStandbyPlayerStateChanged(Player.STATE_READY)

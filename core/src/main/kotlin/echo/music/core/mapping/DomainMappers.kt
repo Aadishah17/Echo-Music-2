@@ -26,13 +26,26 @@ fun DbSong.toDomain(): DomainSong {
 }
 
 fun SongEntity.toDomain(): DomainSong {
+  val resolvedThumbnailUrl = if (thumbnailUrl != null) {
+    thumbnailUrl
+  } else if (isLocal) {
+    val mediaStoreAlbumId = albumId?.removePrefix("LOCAL_ALBUM_")?.toLongOrNull()
+    if (mediaStoreAlbumId != null && mediaStoreAlbumId > 0) {
+      "content://media/external/audio/albumart/$mediaStoreAlbumId"
+    } else {
+      id
+    }
+  } else {
+    null
+  }
+
   return DomainSong(
     id = id,
     title = title,
     artists = emptyList(),
     album = albumId?.let { AlbumRef(id = it, title = albumName.orEmpty()) },
     durationSeconds = duration,
-    thumbnailUrl = thumbnailUrl,
+    thumbnailUrl = resolvedThumbnailUrl,
     isExplicit = explicit,
     isLocal = isLocal,
     liked = liked,

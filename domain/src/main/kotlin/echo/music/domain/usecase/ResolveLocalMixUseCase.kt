@@ -16,6 +16,7 @@ class ResolveLocalMixUseCase(
    */
   suspend fun invoke(seedSongId: String, limit: Int = 25): List<Song> {
     val seedSong = songRepository.getSong(seedSongId).first() ?: return emptyList()
+    val seedArtistIds = seedSong.artists.mapNotNull { it.id }.toSet()
     val seedArtistNames = seedSong.artists.map { it.name.trim().lowercase() }.toSet()
 
     val likedSongs = songRepository.getLikedSongs().first()
@@ -27,26 +28,19 @@ class ResolveLocalMixUseCase(
 
     return candidatePool
       .sortedByDescending { candidate ->
-        var score = 0.0
-
         // Bonus if candidate shares an artist with the seed song
         val sharesArtist = candidate.artists.any { artist ->
-          seedArtistNames.contains(artist.name.trim().lowercase())
+          if (artist.id != null && seedArtistIds.contains(artist.id)) {
+            true
+          } else {
+            seedArtistNames.contains(artist.name.trim().lowercase())
+          }
         }
-        if (sharesArtist) {
-          score += 100.0
-        }
+        val artistBonus = if (sharesArtist) 100.0 else 0.0
+        val likedBonus = if (candidate.liked) 30.0 else 0.0
+        val playTimeBonus = (candidate.totalPlayTimeMs / 60000.0).coerceAtMost(60.0)
 
-        // Bonus for liked tracks
-        if (candidate.liked) {
-          score += 30.0
-        }
-
-        // Engagement score based on playback duration
-        val playMinutes = (candidate.totalPlayTimeMs / 60000.0).coerceAtMost(60.0)
-        score += playMinutes
-
-        score
+        artistBonus + likedBonus + playTimeBonus
       }
       .take(limit)
   }

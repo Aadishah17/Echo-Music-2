@@ -23,8 +23,8 @@ class DescriptorParserTest {
     )
     val capabilities = driver.parseDescriptors(sampleUac2Descriptor)
     assertEquals(2, capabilities.uacVersion)
-    assertTrue(capabilities.supportedSampleRates.contains(96000))
-    assertTrue(capabilities.supportedSampleRates.contains(192000))
+    assertEquals(1, capabilities.clockSourceId)
+    assertTrue(capabilities.supportedSampleRates.contains(48000))
   }
 
   @Test

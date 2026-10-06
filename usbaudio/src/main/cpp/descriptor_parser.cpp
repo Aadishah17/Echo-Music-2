@@ -71,19 +71,20 @@ ParsedDacCapabilities DescriptorParser::parse(const uint8_t* data, size_t size) 
                     if (caps.uacVersion == 2 && subtype == UAC2_CLOCK_SOURCE && descLen >= sizeof(Uac2ClockSourceDescriptor)) {
                         const auto* cs = reinterpret_cast<const Uac2ClockSourceDescriptor*>(descData);
                         caps.clockSourceId = cs->bClockID;
-                        // Standard sample rates supported by typical UAC2 clocks
-                        allSampleRates.insert(44100);
+                        // In UAC2, sample rates are dynamically queried via CUR/RANGE requests on the clock source entity.
+                        // Default to 48000 until runtime GET_RANGE query is performed.
                         allSampleRates.insert(48000);
-                        allSampleRates.insert(88200);
-                        allSampleRates.insert(96000);
-                        allSampleRates.insert(176400);
-                        allSampleRates.insert(192000);
                     } else if (subtype == UAC_FEATURE_UNIT && descLen >= 6) {
                         caps.hasHardwareVolume = true;
                         caps.volumeFeatureUnitId = descData[3];
                     }
                 } else if (currentInterfaceClass == USB_CLASS_AUDIO && currentInterfaceSubClass == USB_SUBCLASS_AUDIOSTREAMING) {
-                    if (subtype == UAC_FORMAT_TYPE && currentFormat.has_value() && descLen >= 4) {
+                    if (subtype == UAC_AS_GENERAL && currentFormat.has_value()) {
+                        if (caps.uacVersion == 2 && descLen >= 11) {
+                            // In UAC2 AS General Descriptor, bNrChannels is at offset 10
+                            currentFormat->channels = descData[10];
+                        }
+                    } else if (subtype == UAC_FORMAT_TYPE && currentFormat.has_value() && descLen >= 4) {
                         uint8_t formatType = descData[3];
                         if (formatType == UAC_FORMAT_TYPE_I) {
                             if (caps.uacVersion == 2 && descLen >= sizeof(Uac2FormatTypeIDescriptor)) {
@@ -105,6 +106,29 @@ ParsedDacCapabilities DescriptorParser::parse(const uint8_t* data, size_t size) 
                                                         (static_cast<uint32_t>(descData[freqOffset + 2]) << 16);
                                         currentFormat->sampleRates.push_back(freq);
                                         allSampleRates.insert(freq);
+                                    }
+                                } else if (samFreqType == 0 && descLen >= 14) {
+                                    // Continuous frequency range: tLowerSamFreq (bytes 8..10), tUpperSamFreq (bytes 11..13)
+                                    uint32_t minRate = static_cast<uint32_t>(descData[8]) |
+                                                       (static_cast<uint32_t>(descData[9]) << 8) |
+                                                       (static_cast<uint32_t>(descData[10]) << 16);
+                                    uint32_t maxRate = static_cast<uint32_t>(descData[11]) |
+                                                       (static_cast<uint32_t>(descData[12]) << 8) |
+                                                       (static_cast<uint32_t>(descData[13]) << 16);
+                                    static const uint32_t standardRates[] = {44100, 48000, 88200, 96000, 176400, 192000};
+                                    for (uint32_t rate : standardRates) {
+                                        if (rate >= minRate && rate <= maxRate) {
+                                            currentFormat->sampleRates.push_back(rate);
+                                            allSampleRates.insert(rate);
+                                        }
+                                    }
+                                    if (currentFormat->sampleRates.empty() && minRate > 0) {
+                                        currentFormat->sampleRates.push_back(minRate);
+                                        allSampleRates.insert(minRate);
+                                        if (maxRate != minRate) {
+                                            currentFormat->sampleRates.push_back(maxRate);
+                                            allSampleRates.insert(maxRate);
+                                        }
                                     }
                                 }
                             }

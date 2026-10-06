@@ -52,6 +52,7 @@ class ChunkingDataSource(
   }
 
   override fun read(buffer: ByteArray, offset: Int, readLength: Int): Int {
+    if (readLength == 0) return 0
     if (!isOpened) return C.RESULT_END_OF_INPUT
     if (bytesToRead != C.LENGTH_UNSET.toLong() && bytesReadTotal >= bytesToRead) {
       return C.RESULT_END_OF_INPUT

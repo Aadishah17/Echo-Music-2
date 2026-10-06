@@ -46,7 +46,7 @@ class BiquadFilter(
   }
 
   private fun calculatePeakingCoefficients() {
-    val safeSampleRate = if (sampleRate > 0) sampleRate else 44100
+    val safeSampleRate = if (sampleRate >= 22) sampleRate else 44100
     val safeFrequency = frequency.coerceIn(10.0, (safeSampleRate / 2.0) - 1.0)
     val safeQ = if (q.isFinite() && q > 0.0) q else 1.41
 
@@ -74,7 +74,7 @@ class BiquadFilter(
   }
 
   private fun calculateLowShelfCoefficients() {
-    val safeSampleRate = if (sampleRate > 0) sampleRate else 44100
+    val safeSampleRate = if (sampleRate >= 22) sampleRate else 44100
     val safeFrequency = frequency.coerceIn(10.0, (safeSampleRate / 2.0) - 1.0)
 
     val A = sqrt(10.0.pow(gain / 20.0))
@@ -107,7 +107,7 @@ class BiquadFilter(
   }
 
   private fun calculateHighShelfCoefficients() {
-    val safeSampleRate = if (sampleRate > 0) sampleRate else 44100
+    val safeSampleRate = if (sampleRate >= 22) sampleRate else 44100
     val safeFrequency = frequency.coerceIn(10.0, (safeSampleRate / 2.0) - 1.0)
 
     val A = sqrt(10.0.pow(gain / 20.0))

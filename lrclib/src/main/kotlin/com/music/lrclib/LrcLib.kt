@@ -65,14 +65,25 @@ object LrcLib {
     title: String,
     album: String? = null,
   ): List<Track> {
-    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
+    val cleaned = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist)
+    val (cleanedTitle, cleanedArtist) = cleaned.toSearchQuery()
+    val primaryArtist = cleaned.primaryArtist
 
-    // Strategy 1: Search with cleaned title and artist
+    // Strategy 1: Search with cleaned title and primary artist
     var results =
-      queryLyricsWithParams(trackName = cleanedTitle, artistName = cleanedArtist, albumName = album)
+      queryLyricsWithParams(trackName = cleanedTitle, artistName = primaryArtist, albumName = album)
         .filter { it.syncedLyrics != null || it.plainLyrics != null }
 
     if (results.isNotEmpty()) return results
+
+    // Strategy 1b: Fallback to full cleaned artist if different from primary artist
+    if (primaryArtist != cleanedArtist) {
+      results =
+        queryLyricsWithParams(trackName = cleanedTitle, artistName = cleanedArtist, albumName = album)
+          .filter { it.syncedLyrics != null || it.plainLyrics != null }
+
+      if (results.isNotEmpty()) return results
+    }
 
     // Strategy 2: Search with cleaned title only (artist might be different)
     results =
