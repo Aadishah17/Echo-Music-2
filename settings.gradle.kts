@@ -36,7 +36,9 @@ include(
     ":lyrics",
     ":playback",
     ":usbaudio",
-    ":metadata"
+    ":metadata",
+    ":dsp-core",
+    ":audio-dsp"
 )
 
 
