@@ -180,8 +180,9 @@ object Paxsenix {
     val durationMs = duration * 1000
     val cleanupRegex = Regex("""\s*\(.*?\)|\s*\[.*?\]""")
 
-    val cleanedTitle = title.replace(cleanupRegex, "").lowercase().trim()
-    val cleanedArtist = cleanArtist(artist).lowercase()
+    val (queryTitle, queryArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
+    val cleanedTitle = queryTitle.replace(cleanupRegex, "").lowercase().trim()
+    val cleanedArtist = queryArtist.lowercase()
 
     val targetIsMixed = title.contains("mixed", ignoreCase = true)
     val targetIsRemix = title.contains("remix", ignoreCase = true)
@@ -333,8 +334,7 @@ object Paxsenix {
     album: String? = null,
     callback: (String) -> Unit,
   ) {
-    val cleanedTitle = cleanTitle(title)
-    val cleanedArtist = cleanArtist(artist)
+    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
 
     val searchQueries = listOf("$cleanedTitle $cleanedArtist", cleanedTitle)
     var plainFallback: String? = null

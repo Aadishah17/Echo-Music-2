@@ -79,12 +79,21 @@ object MetadataCleaner {
       val potentialTitle = parts.drop(1).joinToString(" - ").trim()
 
       if (potentialTitle.isNotBlank()) {
-        if (artist.isBlank() ||
-          potentialArtist.contains(artist, ignoreCase = true) ||
-          artist.contains(potentialArtist, ignoreCase = true) ||
-          artist.contains("Topic", ignoreCase = true) ||
-          artist.contains("VEVO", ignoreCase = true)
-        ) {
+        val isRightSideVersionOrJunk =
+          CleanerRules.VERSION_PATTERNS.any { it.first.containsMatchIn(potentialTitle) } ||
+          CleanerRules.JUNK_PATTERNS.any { it.containsMatchIn(potentialTitle) } ||
+          potentialTitle.startsWith("(") || potentialTitle.startsWith("[")
+
+        if (artist.isNotBlank()) {
+          if (potentialArtist.contains(artist, ignoreCase = true) ||
+            artist.contains(potentialArtist, ignoreCase = true) ||
+            artist.contains("Topic", ignoreCase = true) ||
+            artist.contains("VEVO", ignoreCase = true)
+          ) {
+            return TitleArtistSplit(potentialTitle, potentialArtist)
+          }
+        } else if (!isRightSideVersionOrJunk) {
+          // Both sides look like real names (Artist - Title)
           return TitleArtistSplit(potentialTitle, potentialArtist)
         }
       }
@@ -109,8 +118,12 @@ object MetadataCleaner {
     val pipeMatch = Regex("""\s*(?:\||//)\s*(.*)$""").find(workingTitle)
     if (pipeMatch != null) {
       val trailing = pipeMatch.groupValues[1].trim()
-      junkTags.add(trailing)
-      workingTitle = workingTitle.substring(0, pipeMatch.range.first).trim()
+      val isJunk = CleanerRules.JUNK_PATTERNS.any { it.containsMatchIn(trailing) } ||
+        trailing.contains(Regex("""\b(official|video|visualizer|audio|mv|pv|lyrics?|remaster|hd|4k)\b""", RegexOption.IGNORE_CASE))
+      if (isJunk) {
+        junkTags.add(trailing)
+        workingTitle = workingTitle.substring(0, pipeMatch.range.first).trim()
+      }
     }
 
     // Extract hashtags like #shorts
@@ -172,7 +185,7 @@ object MetadataCleaner {
     }
 
     // Check for inline featuring not enclosed in brackets, e.g. "Song feat. Artist"
-    val inlineFeatRegex = Regex("""\s*\b(?:feat\.?|ft\.?|featuring)\s+([^()\[\]\-|]+)""", RegexOption.IGNORE_CASE)
+    val inlineFeatRegex = Regex("""(?:\s+|^)(?:feat\.?|ft\.?|featuring)\s+([^()\[\]\-|]+)""", RegexOption.IGNORE_CASE)
     val inlineFeatMatch = inlineFeatRegex.find(workingTitle)
     if (inlineFeatMatch != null) {
       val artistsStr = inlineFeatMatch.groupValues[1].trim()

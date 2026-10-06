@@ -115,9 +115,8 @@ object LrcLib {
     duration: Int,
     album: String? = null,
   ) = runCatching {
+    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
     val tracks = queryLyrics(artist, title, album)
-    val cleanedTitle = cleanTitle(title)
-    val cleanedArtist = cleanArtist(artist)
 
     val res =
       when {
@@ -150,9 +149,8 @@ object LrcLib {
     album: String? = null,
     callback: (String) -> Unit,
   ) {
+    val (cleanedTitle, cleanedArtist) = com.music.echo.metadata.cleaner.MetadataCleaner.clean(title, artist).toSearchQuery()
     val tracks = queryLyrics(artist, title, album)
-    val cleanedTitle = cleanTitle(title)
-    val cleanedArtist = cleanArtist(artist)
     var count = 0
     var plain = 0
 

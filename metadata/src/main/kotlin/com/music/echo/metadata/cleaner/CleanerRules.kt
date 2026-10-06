@@ -38,16 +38,15 @@ object CleanerRules {
 
   val ARTIST_SEPARATORS = listOf(
     " & ",
-    " and ",
     ", ",
-    " x ",
-    " X ",
     " feat. ",
     " feat ",
     " ft. ",
     " ft ",
     " featuring ",
-    " with "
+    " and ",
+    " x ",
+    " X "
   )
 
   val CHANNEL_JUNK_SUFFIXES = listOf(
