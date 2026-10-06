@@ -47,6 +47,7 @@ object MetadataCleaner {
       rawArtist = rawArtist,
       cleanTitle = currentTitle,
       primaryArtist = primaryArtist,
+      cleanArtist = currentArtist.ifBlank { primaryArtist },
       featuredArtists = featuredArtists.distinct().filter { it.isNotBlank() && !it.equals(primaryArtist, ignoreCase = true) },
       version = detectedVersion,
       junkTags = junkTags

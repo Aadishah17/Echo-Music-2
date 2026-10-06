@@ -5,6 +5,7 @@ data class CleanedMetadata(
   val rawArtist: String,
   val cleanTitle: String,
   val primaryArtist: String,
+  val cleanArtist: String = primaryArtist,
   val featuredArtists: List<String> = emptyList(),
   val version: VersionInfo? = null,
   val junkTags: List<String> = emptyList()
@@ -18,6 +19,6 @@ data class CleanedMetadata(
   }
 
   fun toSearchQuery(): Pair<String, String> {
-    return cleanTitle to primaryArtist
+    return cleanTitle to cleanArtist
   }
 }

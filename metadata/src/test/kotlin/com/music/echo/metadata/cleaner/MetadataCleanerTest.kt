@@ -85,7 +85,11 @@ class MetadataCleanerTest {
   fun testMultiArtistSeparatorsInArtistField() {
     val result = MetadataCleaner.clean("Title", "Calvin Harris & Dua Lipa")
     assertEquals("Calvin Harris", result.primaryArtist)
+    assertEquals("Calvin Harris & Dua Lipa", result.cleanArtist)
     assertTrue("Should include Dua Lipa in featured artists", result.featuredArtists.contains("Dua Lipa"))
+    val (queryTitle, queryArtist) = result.toSearchQuery()
+    assertEquals("Title", queryTitle)
+    assertEquals("Calvin Harris & Dua Lipa", queryArtist)
   }
 
   @Test
