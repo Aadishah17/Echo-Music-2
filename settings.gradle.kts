@@ -35,7 +35,8 @@ include(
     ":core",
     ":lyrics",
     ":playback",
-    ":usbaudio"
+    ":usbaudio",
+    ":metadata"
 )
 
 
