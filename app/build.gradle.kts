@@ -243,6 +243,8 @@ dependencies {
 
   implementation(project(":core"))
   implementation(project(":playback"))
+  implementation(project(":audio-dsp"))
+  implementation(project(":dsp-core"))
   implementation(project(":usbaudio"))
 
   // Firebase - GMS flavor only (excluded from F-Droid / FOSS builds)

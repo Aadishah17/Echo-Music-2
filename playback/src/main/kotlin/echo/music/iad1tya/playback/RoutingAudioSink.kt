@@ -35,7 +35,16 @@ class RoutingAudioSink(
     @Volatile private var playing = false
 
     fun reselect() {
-        val target = if (isBitPerfectActive()) usbSink else defaultSink
+        val target = if (isBitPerfectActive()) {
+            val cfg = lastConfig
+            if (cfg != null && !usbSink.supportsFormat(cfg.inputFormat)) {
+                defaultSink
+            } else {
+                usbSink
+            }
+        } else {
+            defaultSink
+        }
         if (target !== activeSink) {
             val oldSink = activeSink
             activeSink = target
@@ -75,6 +84,7 @@ class RoutingAudioSink(
     }
 
     override fun play() {
+        reselect()
         playing = true
         activeSink.play()
     }

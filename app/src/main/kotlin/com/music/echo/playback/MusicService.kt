@@ -128,11 +128,11 @@ import echo.music.iad1tya.db.entities.Song
 import echo.music.iad1tya.di.DownloadCache
 import echo.music.iad1tya.di.PlayerCache
 import echo.music.iad1tya.echomusic.updater.downloadmanager.EchoNotificationProvider
-import echo.music.iad1tya.eq.EqualizerService
-import echo.music.iad1tya.eq.audio.AutomixDuckAudioProcessor
-import echo.music.iad1tya.eq.audio.CustomEqualizerAudioProcessor
-import echo.music.iad1tya.eq.audio.StereoWidenerAudioProcessor
-import echo.music.iad1tya.eq.data.EQProfileRepository
+import echo.music.dsp.audio.AutomixDuckAudioProcessor
+import echo.music.dsp.audio.CustomEqualizerAudioProcessor
+import echo.music.dsp.audio.StereoWidenerAudioProcessor
+import echo.music.dsp.controller.DspController
+import echo.music.dsp.data.EQProfileRepository
 import echo.music.iad1tya.playback.AudioSinkSelector
 import echo.music.usbaudio.UsbAudioDriver
 import echo.music.usbaudio.UsbDacAudioSink
@@ -226,7 +226,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   @Inject lateinit var mediaLibrarySessionCallback: MediaLibrarySessionCallback
 
-  @Inject lateinit var equalizerService: EqualizerService
+  @Inject lateinit var dspController: DspController
 
   @Inject lateinit var eqProfileRepository: EQProfileRepository
 
@@ -263,7 +263,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private val usbDacManager by lazy {
     UsbDacManager(this, usbAudioDriver).apply {
       onDeviceDetachedCallback = {
-        player.pause()
+        if (isBitPerfectEnabled) {
+          player.pause()
+        }
       }
     }
   }
@@ -274,6 +276,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private var crossfadeDuration = 5000f
   private var crossfadeGapless = true
   private var crossfadeTriggerJob: Job? = null
+  private val preArmManager by lazy { echo.music.iad1tya.playback.crossfade.AdaptivePreArmManager() }
 
   private var automixEnabled = false
   private var activeAutomixPlan: AutomixPlan? = null
@@ -283,6 +286,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     val player: ExoPlayer,
     val plan: AutomixPlan?,
     val targetMediaId: String,
+    val prepStartTimeMs: Long = System.currentTimeMillis()
   )
 
   private var prebuffered: PrebufferedTransition? = null
@@ -445,6 +449,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private val playerSilenceProcessors = HashMap<Player, SilenceDetectorAudioProcessor>()
   private val playerDuckProcessors = HashMap<Player, AutomixDuckAudioProcessor>()
   private val playerStereoWideners = HashMap<Player, StereoWidenerAudioProcessor>()
+  private val playerEqProcessors = HashMap<Player, CustomEqualizerAudioProcessor>()
+  private val cutoffGuard = PlaybackCutoffGuard()
 
   private val instantSilenceSkipEnabled = MutableStateFlow(false)
 
@@ -719,13 +725,13 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     scope.launch {
       eqProfileRepository.activeProfile.collect { profile ->
         if (profile != null) {
-          val result = equalizerService.applyProfile(profile)
+          val result = dspController.applyProfile(profile)
           if (result.isSuccess && player.playbackState == Player.STATE_READY && player.isPlaying) {
 
             player.seekTo(player.currentPosition)
           }
         } else {
-          equalizerService.disable()
+          dspController.disableEqualizer()
           if (player.playbackState == Player.STATE_READY && player.isPlaying) {
             player.seekTo(player.currentPosition)
           }
@@ -1251,7 +1257,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   private fun createExoPlayer(): ExoPlayer {
     val eqProcessor = CustomEqualizerAudioProcessor()
-    equalizerService.addAudioProcessor(eqProcessor)
+    dspController.addAudioProcessor(eqProcessor)
 
     val duckProcessor = AutomixDuckAudioProcessor()
 
@@ -1300,6 +1306,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     playerSilenceProcessors[player] = silenceProcessor
     playerDuckProcessors[player] = duckProcessor
     playerStereoWideners[player] = stereoWidener
+    playerEqProcessors[player] = eqProcessor
 
     player.apply {
       runBlocking {
@@ -2386,6 +2393,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     mediaItem: MediaItem?,
     reason: Int,
   ) {
+    cutoffGuard.onTrackChanged(mediaItem?.mediaId)
     val prevItem = trackedMediaItem
     if (prevItem != null) {
       if (trackedPlayStartTs > 0L) {
@@ -2421,7 +2429,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       ?: (mediaItem?.metadata?.duration?.takeIf { it > 0 }?.times(1000L) ?: 0L)
     trackedAccumulatedPlayMs = 0L
     trackedPlayStartTs = if (player.isPlaying) System.currentTimeMillis() else 0L
-
     // Stale plan belongs to the previous track; planner re-arms when the new one is READY.
     if (!isCrossfading.value) automixDebugInfo.value = null
     prepareAutomixForCurrentPair()
@@ -2449,7 +2456,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     checkAndSubmitListenBrainzFinished()
 
     if (player.playWhenReady && player.playbackState == Player.STATE_READY) {
-      scrobbleManager?.onSongStart(player.currentMetadata, duration = player.duration)
+      val canonicalDur = (player.currentMetadata?.duration ?: 0) * 1000L
+      val safeDur = if (canonicalDur > 0L) canonicalDur else player.duration
+      scrobbleManager?.onSongStart(player.currentMetadata, duration = safeDur)
       player.currentMediaItem?.mediaId?.let { mediaId ->
         if (listenBrainzCurrentMediaId != mediaId) {
           listenBrainzCurrentMediaId = mediaId
@@ -2530,6 +2539,36 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   ) {
 
     if (playbackState == Player.STATE_ENDED) {
+      val isCasting = castConnectionHandler?.isCasting?.value == true
+      val isSleepTimerStopping = ::sleepTimer.isInitialized && sleepTimer.pauseWhenSongEnd
+      val currentItem = player.currentMediaItem
+      val canonicalDurationMs = (currentItem?.metadata?.duration ?: 0) * 1000L
+      val currentPos = player.currentPosition
+      val playerDur = player.duration
+
+      val decision = if (!isCasting && !isSleepTimerStopping) {
+        cutoffGuard.verifyTrackCompletion(
+          currentPositionMs = currentPos,
+          canonicalDurationMs = canonicalDurationMs,
+          playerDurationMs = playerDur
+        )
+      } else {
+        CutoffDecision.AllowEnd
+      }
+
+      if (decision is CutoffDecision.RecoverPrematureCutoff) {
+        Timber.tag(TAG).w(
+          "Premature cutoff detected for ${currentItem?.mediaId}: pos=$currentPos ms, canonical=$canonicalDurationMs ms (retry #${decision.retryAttempt}). Recovering..."
+        )
+        val shouldPlay = player.playWhenReady
+        player.seekTo(decision.resumePositionMs)
+        player.prepare()
+        if (shouldPlay) {
+          player.play()
+        }
+        return
+      }
+
       if (cachedRepeatMode == REPEAT_MODE_ALL && player.mediaItemCount > 0) {
         player.seekTo(0, 0)
         player.prepare()
@@ -2650,6 +2689,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     if (events.containsAny(Player.EVENT_IS_PLAYING_CHANGED)) {
+      val canonicalDur = (player.currentMetadata?.duration ?: 0) * 1000L
+      val safeDur = if (canonicalDur > 0L) canonicalDur else player.duration
       if (player.isPlaying) {
         if (trackedPlayStartTs == 0L) {
           trackedPlayStartTs = System.currentTimeMillis()
@@ -2660,11 +2701,10 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           trackedPlayStartTs = 0L
         }
       }
-
       scrobbleManager?.onPlayerStateChanged(
         player.isPlaying,
         player.currentMetadata,
-        duration = player.duration
+        duration = safeDur
       )
 
       if (player.isPlaying) {
@@ -2673,7 +2713,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             checkAndSubmitListenBrainzFinished()
             listenBrainzCurrentMediaId = mediaId
             listenBrainzCurrentStartTs = System.currentTimeMillis()
-            scrobbleManager?.onSongStart(player.currentMetadata, duration = player.duration)
+            scrobbleManager?.onSongStart(player.currentMetadata, duration = safeDur)
           }
           checkAndSubmitListenBrainzPlayingNow(mediaId)
         }
@@ -3814,6 +3854,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     player.removeListener(sleepTimer)
     playerSilenceProcessors.remove(player)
     playerStereoWideners.remove(player)
+    playerEqProcessors.remove(player)?.let { dspController.removeAudioProcessor(it) }
 
     player.release()
     discordUpdateJob?.cancel()
@@ -4128,11 +4169,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           if (player.currentMediaItem?.mediaId != targetMediaId) return@launch
           val remaining = triggerTime - player.currentPosition
           if (remaining <= 0) break
-          if (!prebufferStarted && remaining <= PREBUFFER_LEAD_MS) {
+          val leadTime = preArmManager.currentLeadTimeMs
+          if (!prebufferStarted && remaining <= leadTime) {
             prebufferStarted = true
             prebufferSecondaryPlayer(plan)
           }
-          delay(minOf(remaining, 250L))
+          delay(minOf(remaining, 100L))
         }
         if (
           isActive &&
@@ -4483,6 +4525,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     playerDuckProcessors.remove(pb.player)
     playerSilenceProcessors.remove(pb.player)
     playerStereoWideners.remove(pb.player)
+    playerEqProcessors.remove(pb.player)?.let { dspController.removeAudioProcessor(it) }
     try {
       pb.player.removeListener(secondaryPlayerListener)
       pb.player.stop()
@@ -4515,8 +4558,20 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     if (targetIndex == C.INDEX_UNSET) return
     val targetMediaId = player.getMediaItemAt(targetIndex).mediaId
 
+    val startTime = android.os.SystemClock.elapsedRealtime()
     val secPlayer = createExoPlayer()
     secPlayer.addListener(secondaryPlayerListener)
+    secPlayer.addListener(object : Player.Listener {
+      override fun onPlaybackStateChanged(playbackState: Int) {
+        if (playbackState == Player.STATE_READY) {
+          val bufferTime = android.os.SystemClock.elapsedRealtime() - startTime
+          if (bufferTime > 0) {
+            preArmManager.recordPreparationDuration(bufferTime)
+          }
+          secPlayer.removeListener(this)
+        }
+      }
+    })
 
     val itemCount = player.mediaItemCount
     val items = mutableListOf<MediaItem>()
@@ -4538,7 +4593,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     secPlayer.shuffleModeEnabled = savedShuffleEnabled
     secPlayer.prepare() // playWhenReady left false: buffers ahead without playing.
 
-    prebuffered = PrebufferedTransition(secPlayer, plan, targetMediaId)
+    prebuffered = PrebufferedTransition(secPlayer, plan, targetMediaId, startTime)
   }
 
   private fun startCrossfade(plan: AutomixPlan? = null) {
@@ -4739,16 +4794,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
         val outDuck = fadingPlayer?.let { playerDuckProcessors[it] }
         val inDuck = playerDuckProcessors[player]
 
-        // Equal-power curve: sin/cos gains keep combined signal energy ~constant
-        // through the blend, so linearly summing two tracks doesn't dip in
-        // perceived loudness at the midpoint the way linear/smoothstep gain does.
+        // Equal-power curve: delegate to EqualPowerCurve for constant acoustic power
         fun equalPowerIn(edge0: Float, edge1: Float, x: Float): Float {
           val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
-          return kotlin.math.sin(t * (Math.PI / 2.0).toFloat())
+          return echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(t).incomingGain
         }
         fun equalPowerOut(edge0: Float, edge1: Float, x: Float): Float {
           val t = ((x - edge0) / (edge1 - edge0)).coerceIn(0f, 1f)
-          return kotlin.math.cos(t * (Math.PI / 2.0).toFloat())
+          return echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(t).outgoingGain
         }
 
         try {
@@ -4767,18 +4820,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
               break
             }
 
-            val progress = i / steps.toFloat()
-            // Fade-out then fade-in with a gentle dip: the outgoing track drops away
-            // over the first ~60% of the blend, the incoming rises over the last ~60%,
-            // so they overlap only through the middle where both sit well below full.
-            // Old track leaves, new one arrives — no sudden level match, no boost.
-            // Both curves are cosine/sine eased, so the ramp stays click-free.
-            val fadeOut = equalPowerOut(0f, 0.6f, progress)
-            val fadeIn = equalPowerIn(0.4f, 1f, progress)
+            val progress = (i / steps.toFloat()).coerceIn(0f, 1f)
+            val gains = echo.music.iad1tya.playback.crossfade.EqualPowerCurve.calculateGains(progress)
 
             try {
-              player.volume = startVolume * fadeIn
-              fadingPlayer?.volume = startVolume * fadeOut
+              player.volume = startVolume * gains.incomingGain
+              fadingPlayer?.volume = startVolume * gains.outgoingGain
             } catch (e: Exception) {
               break
             }
@@ -4817,6 +4864,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
     fadingPlayer?.let { playerDuckProcessors.remove(it) }
     fadingPlayer?.let { playerStereoWideners.remove(it) }
+    fadingPlayer?.let { playerEqProcessors.remove(it)?.let { eq -> dspController.removeAudioProcessor(eq) } }
     fadingPlayer?.stop()
     fadingPlayer?.clearMediaItems()
     fadingPlayer?.release()
@@ -4842,8 +4890,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     const val CHUNK_LENGTH = 512 * 1024L
     const val PERSISTENT_QUEUE_FILE = "persistent_queue.data"
     const val PERSISTENT_AUTOMIX_FILE = "persistent_automix.data"
-    /** How far ahead of the crossfade trigger to start buffering the incoming track. */
-    const val PREBUFFER_LEAD_MS = 10000L
     const val PERSISTENT_PLAYER_STATE_FILE = "persistent_player_state.data"
     const val MAX_CONSECUTIVE_ERR = 5
     const val MAX_RETRY_COUNT = 10
