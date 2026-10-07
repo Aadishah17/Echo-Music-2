@@ -25,7 +25,10 @@ class UsbDacAudioSink(
     private var playing = false
     private var isStreamEnded = false
     private var isStreaming = false
+    private var activeConnection: DacDeviceState.Connected? = null
     private var activeStreamFd: Int = -1
+    private var activeStreamSampleRate: Int = 0
+    private var activeStreamChannels: Int = 0
     private var startMediaTimeUs: Long = AudioSink.CURRENT_POSITION_NOT_SET
     private var inputFormat: Format? = null
     private var volume = 1.0f
@@ -33,6 +36,7 @@ class UsbDacAudioSink(
     private var scratchBuffer = ByteArray(0)
 
     private var activeDacBitDepth: Int = 16
+    private var activeContainerBitDepth: Int = 16
     private var conversionBuffer = ByteArray(0)
 
     private fun getBytesPerSample(encoding: Int): Int = when (encoding) {
@@ -95,7 +99,7 @@ class UsbDacAudioSink(
                 d += 4
             }
         } else {
-            return src.copyOfRange(srcOffset, srcOffset + srcLen)
+            throw IllegalArgumentException("Unsupported PCM bit depth conversion: $srcBitDepth -> $dstBitDepth")
         }
 
         return conversionBuffer
@@ -106,7 +110,15 @@ class UsbDacAudioSink(
     }
 
     override fun supportsFormat(format: Format): Boolean {
-        if (format.sampleMimeType != MimeTypes.AUDIO_RAW || format.pcmEncoding == C.ENCODING_PCM_FLOAT) {
+        if (format.sampleMimeType != MimeTypes.AUDIO_RAW) {
+            return false
+        }
+        val encoding = format.pcmEncoding
+        if (encoding != Format.NO_VALUE &&
+            encoding != C.ENCODING_PCM_16BIT &&
+            encoding != C.ENCODING_PCM_24BIT &&
+            encoding != C.ENCODING_PCM_32BIT
+        ) {
             return false
         }
         val sampleRate = format.sampleRate
@@ -160,13 +172,12 @@ class UsbDacAudioSink(
 
     private fun startStreamIfNeeded() {
         val connected = dacConnectionProvider?.invoke()
-        val currentFd = connected?.fileDescriptor ?: -1
-        if (isStreaming && (connected == null || currentFd != activeStreamFd)) {
+        if (isStreaming && (connected == null || connected !== activeConnection)) {
             driver.stopStream()
             isStreaming = false
+            activeConnection = null
             activeStreamFd = -1
         }
-        if (isStreaming) return
         if (connected != null) {
             capabilities = connected.capabilities
             val format = inputFormat
@@ -199,6 +210,15 @@ class UsbDacAudioSink(
             val containerBytes = if (subslot in 2..4) subslot else ((bitDepth + 7) / 8)
             val streamBitDepth = containerBytes * 8
 
+            if (isStreaming && (sampleRate != activeStreamSampleRate || channels != activeStreamChannels || streamBitDepth != activeContainerBitDepth)) {
+                driver.stopStream()
+                isStreaming = false
+                framesWrittenJvm = 0L
+                startMediaTimeUs = AudioSink.CURRENT_POSITION_NOT_SET
+            }
+
+            if (isStreaming) return
+
             val ret = driver.startStream(
                 fd = connected.fileDescriptor,
                 interfaceNumber = interfaceNumber,
@@ -211,7 +231,11 @@ class UsbDacAudioSink(
             )
             if (ret == 0) {
                 isStreaming = true
+                activeConnection = connected
                 activeStreamFd = connected.fileDescriptor
+                activeStreamSampleRate = sampleRate
+                activeStreamChannels = channels
+                activeContainerBitDepth = streamBitDepth
             } else {
                 listener?.onAudioSinkError(IllegalStateException("Failed to start USB audio stream: $ret"))
             }
@@ -226,9 +250,8 @@ class UsbDacAudioSink(
         encodedAccessUnitCount: Int
     ): Boolean {
         if (!buffer.hasRemaining()) return true
-        if (playing) {
-            startStreamIfNeeded()
-        }
+        if (!playing) return false
+        startStreamIfNeeded()
         if (dacConnectionProvider != null && !isStreaming) {
             return false // Stream hasn't started yet; backpressure until ready
         }
@@ -251,14 +274,7 @@ class UsbDacAudioSink(
             else -> 16
         }
 
-        val matching = capabilities.supportedFormats.firstOrNull { fmt ->
-            (inputFormat?.sampleRate == null || inputFormat?.sampleRate == Format.NO_VALUE || fmt.sampleRates.isEmpty() || fmt.sampleRates.contains(inputFormat!!.sampleRate)) &&
-            (inputFormat?.channelCount == null || inputFormat?.channelCount == Format.NO_VALUE || fmt.channels == channels)
-        } ?: capabilities.supportedFormats.firstOrNull()
-
-        val subslot = matching?.subslotBytes ?: ((activeDacBitDepth + 7) / 8)
-        val containerBytes = if (subslot in 2..4) subslot else ((activeDacBitDepth + 7) / 8)
-        val targetContainerBitDepth = if (containerBytes in 2..4) containerBytes * 8 else inputBitDepth
+        val targetContainerBitDepth = activeContainerBitDepth
 
         val pcmToSend: ByteArray
         val bytesToSend: Int
@@ -352,7 +368,11 @@ class UsbDacAudioSink(
         playing = false
         isStreamEnded = false
         inputFormat = null
+        activeConnection = null
         activeStreamFd = -1
+        activeStreamSampleRate = 0
+        activeStreamChannels = 0
+        activeContainerBitDepth = 16
         startMediaTimeUs = AudioSink.CURRENT_POSITION_NOT_SET
     }
 }

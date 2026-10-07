@@ -116,8 +116,8 @@ class UsbDacManager(
 
     fun requestPermission(device: UsbDevice) {
         val manager = usbManager ?: return
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            PendingIntent.FLAG_MUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         } else {
             PendingIntent.FLAG_UPDATE_CURRENT
         }
@@ -150,6 +150,13 @@ class UsbDacManager(
     }
 
     private fun connectDevice(device: UsbDevice) {
+        val current = _activeDacFlow.value
+        if (current is DacDeviceState.Connected) {
+            if (current.device.deviceId == device.deviceId) {
+                return
+            }
+            disconnectCurrent()
+        }
         val manager = usbManager ?: return
         val connection = manager.openDevice(device)
         if (connection == null) {
