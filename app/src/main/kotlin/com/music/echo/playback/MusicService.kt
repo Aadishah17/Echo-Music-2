@@ -2393,6 +2393,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     mediaItem: MediaItem?,
     reason: Int,
   ) {
+    cutoffGuard.onTrackChanged(mediaItem?.mediaId)
     val prevItem = trackedMediaItem
     if (prevItem != null) {
       if (trackedPlayStartTs > 0L) {
@@ -2428,7 +2429,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       ?: (mediaItem?.metadata?.duration?.takeIf { it > 0 }?.times(1000L) ?: 0L)
     trackedAccumulatedPlayMs = 0L
     trackedPlayStartTs = if (player.isPlaying) System.currentTimeMillis() else 0L
-
     // Stale plan belongs to the previous track; planner re-arms when the new one is READY.
     if (!isCrossfading.value) automixDebugInfo.value = null
     prepareAutomixForCurrentPair()
@@ -2689,6 +2689,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
 
     if (events.containsAny(Player.EVENT_IS_PLAYING_CHANGED)) {
+      val canonicalDur = (player.currentMetadata?.duration ?: 0) * 1000L
+      val safeDur = if (canonicalDur > 0L) canonicalDur else player.duration
       if (player.isPlaying) {
         if (trackedPlayStartTs == 0L) {
           trackedPlayStartTs = System.currentTimeMillis()
@@ -2699,7 +2701,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           trackedPlayStartTs = 0L
         }
       }
-
       scrobbleManager?.onPlayerStateChanged(
         player.isPlaying,
         player.currentMetadata,

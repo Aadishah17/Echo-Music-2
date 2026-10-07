@@ -42,7 +42,6 @@ dependencies {
   api(libs.ktor.serialization.json)
   api(libs.protobuf.javalite)
   coreLibraryDesugaring(libs.desugaring)
-
   testImplementation(libs.junit)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
