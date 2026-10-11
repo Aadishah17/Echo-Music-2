@@ -219,6 +219,8 @@ import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import echo.music.iad1tya.utils.get
+import echo.music.iad1tya.utils.onlinePlaylistRoute
+import echo.music.iad1tya.utils.validOnlinePlaylistId
 import echo.music.iad1tya.utils.rememberEnumPreference
 import echo.music.iad1tya.utils.rememberPreference
 import echo.music.iad1tya.utils.reportException
@@ -1859,8 +1861,16 @@ class MainActivity : ComponentActivity() {
     }
 
     when (val path = uri.pathSegments.firstOrNull()) {
-      "playlist" ->
-        uri.getQueryParameter("list")?.let { playlistId ->
+      "playlist" -> {
+        val playlistId = validOnlinePlaylistId(uri.getQueryParameter("list"))
+        if (playlistId == null) {
+          android.widget.Toast.makeText(
+              this,
+              R.string.invalid_playlist_url,
+              android.widget.Toast.LENGTH_SHORT
+            )
+            .show()
+        } else {
           if (playlistId.startsWith("OLAK5uy_")) {
             coroutineScope.launch(Dispatchers.IO) {
               YouTube.albumSongs(playlistId)
@@ -1872,9 +1882,10 @@ class MainActivity : ComponentActivity() {
                 .onFailure { reportException(it) }
             }
           } else {
-            navController.navigate("online_playlist/$playlistId")
+            onlinePlaylistRoute(playlistId)?.let { navController.navigate(it) }
           }
         }
+      }
       "browse" -> uri.lastPathSegment?.let { browseId -> navController.navigate("album/$browseId") }
       "channel",
       "c" -> uri.lastPathSegment?.let { artistId -> navController.navigate("artist/$artistId") }

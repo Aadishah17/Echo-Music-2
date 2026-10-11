@@ -48,6 +48,8 @@ import echo.music.iad1tya.ui.component.DefaultDialog
 import echo.music.iad1tya.ui.component.Material3SettingsGroup
 import echo.music.iad1tya.ui.component.Material3SettingsItem
 import echo.music.iad1tya.ui.component.TextFieldDialog
+import echo.music.iad1tya.utils.onlinePlaylistIdFromUrl
+import echo.music.iad1tya.utils.onlinePlaylistRoute
 import echo.music.iad1tya.utils.rememberEnumPreference
 
 @Composable
@@ -237,9 +239,9 @@ fun LibraryScreen(navController: NavController) {
       autoFocus = true,
       onDismiss = { showYoutubeImportDialog = false },
       onDone = { finalUrl ->
-        val listId = Regex("[?&]list=([a-zA-Z0-9_-]+)").find(finalUrl)?.groupValues?.get(1)
-        if (listId != null) {
-          navController.navigate("online_playlist/$listId")
+        val route = onlinePlaylistRoute(onlinePlaylistIdFromUrl(finalUrl))
+        if (route != null) {
+          navController.navigate(route)
         } else {
           android.widget.Toast.makeText(
               context,

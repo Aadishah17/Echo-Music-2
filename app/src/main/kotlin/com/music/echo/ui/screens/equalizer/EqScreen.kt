@@ -51,6 +51,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import echo.music.iad1tya.LocalPlayerConnection
 import echo.music.iad1tya.R
+import echo.music.iad1tya.utils.launchSafely
 import echo.music.dsp.core.models.SavedEQProfile
 import timber.log.Timber
 
@@ -114,7 +115,7 @@ fun EqScreen(
     profiles = state.profiles,
     activeProfileId = state.activeProfileId,
     onProfileSelected = { viewModel.selectProfile(it) },
-    onImportCustomEQ = { filePickerLauncher.launch("text/plain") },
+    onImportCustomEQ = { filePickerLauncher.launchSafely("text/plain", context) },
     onOpenSystemEqualizer = {
       playerConnection?.let { connection ->
         val intent =
