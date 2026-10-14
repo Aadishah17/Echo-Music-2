@@ -6,7 +6,7 @@ Baseline: main at 1627bf6e. The Hero implementation for #576/#446 was already co
 
 On 2026-10-14, the repository operator explicitly requested closure of all 91 reviewed issues, including unresolved reports and pending features. The closure plan marks implemented or previously addressed requests as completed and unresolved requests as not planned. Closing an issue does not change the implementation findings recorded below.
 
-Publication status on 2026-10-15: the verified account, mdakashhossain1, was denied a push to EchoMusicApp/Echo-Music (HTTP 403), and GitHub disables upstream issue closure for this account. Delivery is being prepared on the existing [account fork](https://github.com/mdakashhossain1/Echo-Music), branch fix/open-issue-review-2026-10-15. A repository administrator must grant the required access before upstream publication or bulk closure can proceed. The 91 upstream issues have not been closed by this work.
+Publication status on 2026-10-15: changes were pushed to the [account fork branch](https://github.com/mdakashhossain1/Echo-Music/tree/fix/open-issue-review-2026-10-15) and published as [draft PR #642](https://github.com/EchoMusicApp/Echo-Music/pull/642). The verified account, mdakashhossain1, was denied a direct push to EchoMusicApp/Echo-Music (HTTP 403), and GitHub disables upstream issue closure with “You do not have permissions to close this issue.” A repository administrator must grant the required access before upstream publication or bulk closure can proceed. **0 of the 91 upstream issues have been closed by this work.**
 
 **16 issues have an implemented change in this batch.** Other rows identify shared corrections awaiting device verification, partial work, existing support, missing evidence, or pending features. An implemented row means the relevant code change compiled and its applicable local checks passed; it does not establish that every reported device now works.
 
@@ -24,6 +24,8 @@ Publication status on 2026-10-15: the verified account, mdakashhossain1, was den
 ## Verification
 
 The selected regression suite completed successfully: **78 tests, 0 failures**.
+
+While preparing the draft PR, repository-wide spotlessCheck reported formatting violations in 24 tasks, including untouched modules and changed files. Formatting remains outstanding and is explicitly unchecked in the draft PR. The local result is recorded in echo-issues-format-check.log in the system temporary directory; code and build outputs were not reformatted by the check.
 
 | Module / variant | Tests |
 | --- | ---: |
