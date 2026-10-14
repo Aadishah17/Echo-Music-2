@@ -647,6 +647,17 @@ interface DatabaseDao {
   @Transaction @Query("SELECT * FROM song") fun allSongs(): Flow<List<Song>>
 
   @Transaction
+  @Query(
+    """
+    SELECT * FROM song
+    WHERE inLibrary IS NOT NULL OR liked
+      OR EXISTS (SELECT 1 FROM playlist_song_map WHERE songId = song.id)
+    ORDER BY rowId DESC
+    """
+  )
+  fun carouselLibrarySongs(): Flow<List<Song>>
+
+  @Transaction
   @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
   @Query(
     """
@@ -1252,6 +1263,18 @@ interface DatabaseDao {
   @Transaction
   @Query("SELECT * FROM event ORDER BY rowId DESC")
   fun events(): Flow<List<EventWithSong>>
+
+  @Transaction
+  @Query(
+    """
+    SELECT song.* FROM song
+    JOIN event ON song.id = event.songId
+    GROUP BY song.id
+    ORDER BY MAX(event.timestamp) DESC, MAX(event.rowId) DESC
+    LIMIT :limit
+    """
+  )
+  fun recentlyPlayedSongs(limit: Int = 50): Flow<List<Song>>
 
   @Transaction
   @Query("SELECT * FROM event WHERE timestamp >= :fromTimeStamp AND timestamp < :toTimeStamp")
