@@ -210,6 +210,22 @@ fun SettingsScreen(
           )
         )
       }
+      val musicFlowText = stringResource(R.string.music_flow)
+      val musicFlowDesc = stringResource(R.string.music_flow_settings_description)
+      if (
+        musicFlowText.lowercase().contains(searchLower) ||
+          musicFlowDesc.lowercase().contains(searchLower)
+      ) {
+        add(
+          Material3SettingsItem(
+            isHighlighted = (highlightKey == musicFlowText),
+            icon = painterResource(R.drawable.swipe),
+            title = { Text(musicFlowText) },
+            description = { Text(musicFlowDesc) },
+            onClick = { navController.navigate("settings/music_flow") }
+          )
+        )
+      }
       if (
         listenTogetherText.lowercase().contains(searchLower) ||
           listenTogetherDesc.lowercase().contains(searchLower)

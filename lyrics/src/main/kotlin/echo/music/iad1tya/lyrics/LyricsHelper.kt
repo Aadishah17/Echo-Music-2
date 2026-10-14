@@ -11,6 +11,7 @@ import echo.music.iad1tya.utils.NetworkConnectivityObserver
 import echo.music.iad1tya.utils.dataStore
 import echo.music.iad1tya.utils.reportException
 import javax.inject.Inject
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -21,6 +22,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class LyricsHelper
 @Inject
@@ -66,31 +68,12 @@ constructor(
         val channel = Channel<LyricsWithProvider?>(providers.size)
         providers.forEach { provider ->
           launch {
-            try {
-              val result =
-                provider.getLyrics(
-                  mediaMetadata.id,
-                  mediaMetadata.title,
-                  mediaMetadata.artists.joinToString { it.name },
-                  mediaMetadata.duration,
-                  mediaMetadata.album?.title,
-                )
-              result
-                .onSuccess { lyrics ->
-                  if (lyrics != LYRICS_NOT_FOUND && lyrics.isNotBlank()) {
-                    channel.send(LyricsWithProvider(lyrics, provider.name))
-                  } else {
-                    channel.send(null)
-                  }
-                }
-                .onFailure {
-                  reportException(it)
-                  channel.send(null)
-                }
-            } catch (e: Exception) {
-              reportException(e)
-              channel.send(null)
-            }
+            val lyrics = fetchLyricsFromProvider(provider, mediaMetadata)
+            val result =
+              lyrics
+                ?.takeIf { it != LYRICS_NOT_FOUND && it.isNotBlank() }
+                ?.let { LyricsWithProvider(it, provider.name) }
+            channel.send(result)
           }
         }
 
@@ -115,22 +98,7 @@ constructor(
       } else {
         val deferreds =
           providers.associateWith { provider ->
-            async {
-              try {
-                provider
-                  .getLyrics(
-                    mediaMetadata.id,
-                    mediaMetadata.title,
-                    mediaMetadata.artists.joinToString { it.name },
-                    mediaMetadata.duration,
-                    mediaMetadata.album?.title,
-                  )
-                  .getOrNull()
-              } catch (e: Exception) {
-                reportException(e)
-                null
-              }
-            }
+            async { fetchLyricsFromProvider(provider, mediaMetadata) }
           }
 
         var bestUnsynced: LyricsWithProvider? = null
@@ -150,6 +118,33 @@ constructor(
       }
     }
   }
+
+  private suspend fun fetchLyricsFromProvider(
+    provider: LyricsProvider,
+    mediaMetadata: MediaMetadata,
+  ): String? =
+    withTimeoutOrNull(PROVIDER_TIMEOUT_MS) {
+      try {
+        provider
+          .getLyrics(
+            mediaMetadata.id,
+            mediaMetadata.title,
+            mediaMetadata.artists.joinToString { it.name },
+            mediaMetadata.duration,
+            mediaMetadata.album?.title,
+          )
+          .getOrElse {
+            if (it is CancellationException) throw it
+            reportException(it)
+            null
+          }
+      } catch (e: CancellationException) {
+        throw e
+      } catch (e: Exception) {
+        reportException(e)
+        null
+      }
+    }
 
   suspend fun getAllLyrics(
     mediaId: String,
@@ -213,6 +208,7 @@ constructor(
 
   companion object {
     private const val MAX_CACHE_SIZE = 3
+    private const val PROVIDER_TIMEOUT_MS = 8_000L
   }
 }
 

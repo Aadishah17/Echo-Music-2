@@ -154,7 +154,9 @@ import echo.music.iad1tya.models.PersistQueue
 import echo.music.iad1tya.models.toMediaMetadata
 import echo.music.iad1tya.playback.audio.BeatAnalyzer
 import echo.music.iad1tya.playback.audio.SilenceDetectorAudioProcessor
+import echo.music.iad1tya.musicflow.MusicFlowQueue
 import echo.music.iad1tya.playback.queues.EmptyQueue
+import echo.music.iad1tya.playback.queues.ListQueue
 import echo.music.iad1tya.playback.queues.Queue
 import echo.music.iad1tya.playback.queues.YouTubeQueue
 import echo.music.iad1tya.playback.queues.filterExplicit
@@ -190,6 +192,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
@@ -395,7 +398,18 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private lateinit var audioQuality: echo.music.iad1tya.constants.AudioQuality
   private lateinit var ipVersion: IpVersion
 
-  private var currentQueue: Queue = EmptyQueue
+  private val activeQueueState = MutableStateFlow<Queue>(EmptyQueue)
+  val activeQueue: StateFlow<Queue> = activeQueueState.asStateFlow()
+  private var pauseAtEndOwner: Queue? = null
+  private var currentQueue: Queue
+    get() = activeQueueState.value
+    set(value) {
+      if (pauseAtEndOwner != null && value !== pauseAtEndOwner) {
+        pauseAtEndOwner = null
+        player.pauseAtEndOfMediaItems = false
+      }
+      activeQueueState.value = value
+    }
   var queueTitle: String? = null
 
   val currentMediaMetadata = MutableStateFlow<echo.music.iad1tya.models.MediaMetadata?>(null)
@@ -2104,6 +2118,40 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     }
   }
 
+  data class QueueSnapshot(
+    val items: List<MediaItem>,
+    val mediaItemIndex: Int,
+    val positionMs: Long,
+    val queue: Queue,
+    val title: String?,
+  )
+
+  fun snapshotQueue(): QueueSnapshot? {
+    if (!playerInitialized.value || player.mediaItemCount == 0) return null
+    return QueueSnapshot(
+      items = List(player.mediaItemCount) { player.getMediaItemAt(it) },
+      mediaItemIndex = player.currentMediaItemIndex.coerceAtLeast(0),
+      positionMs = player.currentPosition.coerceAtLeast(0L),
+      queue = currentQueue,
+      title = queueTitle,
+    )
+  }
+
+  fun restoreQueueSnapshot(snapshot: QueueSnapshot, playWhenReady: Boolean) {
+    playQueue(
+      ListQueue(snapshot.title, snapshot.items, snapshot.mediaItemIndex, snapshot.positionMs),
+      playWhenReady,
+    )
+    // Re-attach the original queue so its continuation keeps paging after the restore.
+    currentQueue = snapshot.queue
+  }
+
+  fun setPauseAtEndOfItems(queue: Queue, pause: Boolean) {
+    if (!playerInitialized.value || currentQueue !== queue) return
+    pauseAtEndOwner = if (pause) queue else null
+    player.pauseAtEndOfMediaItems = pause
+  }
+
   fun playNext(items: List<MediaItem>) {
     val isCasting = castConnectionHandler?.isCasting?.value == true
     Timber.d(
@@ -2446,8 +2494,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       val wasAutoTransition = reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO
       val completionRatio = if (durationMs > 0L) trackedAccumulatedPlayMs.toFloat() / durationMs else 0f
       val wasSkip = !wasAutoTransition && completionRatio < 0.85f
+      val wasFlowBrowse =
+        currentQueue is MusicFlowQueue &&
+          trackedAccumulatedPlayMs < MusicFlowQueue.BROWSE_SKIP_THRESHOLD_MS
 
-      if (wasSkip && trackedAccumulatedPlayMs > 0L) {
+      if (wasSkip && !wasFlowBrowse && trackedAccumulatedPlayMs > 0L) {
         val prevMeta = prevItem.metadata
         val title = prevMeta?.title ?: prevItem.mediaMetadata.title?.toString().orEmpty()
         val artist = prevMeta?.artists?.joinToString(", ") { it.name }

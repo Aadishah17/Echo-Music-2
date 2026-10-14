@@ -310,6 +310,14 @@ val EnablePlayerSwipeKey = booleanPreferencesKey("enable_player_swipe")
 val ShowSpeedDialKey = booleanPreferencesKey("showSpeedDial")
 val ShowCommentButtonKey = booleanPreferencesKey("show_comment_button")
 
+val MusicFlowEnabledKey = booleanPreferencesKey("music_flow_enabled")
+val MusicFlowAutoplayKey = booleanPreferencesKey("music_flow_autoplay")
+val MusicFlowAutoNextKey = booleanPreferencesKey("music_flow_auto_next")
+val MusicFlowAnimatedBackgroundKey = booleanPreferencesKey("music_flow_animated_background")
+val MusicFlowLyricsKey = booleanPreferencesKey("music_flow_lyrics")
+val MusicFlowCellularPrefetchKey = booleanPreferencesKey("music_flow_cellular_prefetch")
+val MusicFlowHideRecentKey = booleanPreferencesKey("music_flow_hide_recent")
+
 enum class LibraryViewType {
   LIST,
   GRID,
