@@ -87,6 +87,8 @@ import echo.music.iad1tya.LocalPlayerAwareWindowInsets
 import echo.music.iad1tya.LocalPlayerConnection
 import echo.music.iad1tya.R
 import echo.music.iad1tya.constants.HideExplicitKey
+import echo.music.iad1tya.constants.DownloadedSongSortTypeKey
+import echo.music.iad1tya.constants.DownloadedSongSortDescendingKey
 import echo.music.iad1tya.constants.SongSortDescendingKey
 import echo.music.iad1tya.constants.SongSortType
 import echo.music.iad1tya.constants.SongSortTypeKey
@@ -196,8 +198,14 @@ fun AutoPlaylistScreen(
   }
 
   val (sortType, onSortTypeChange) =
-    rememberEnumPreference(SongSortTypeKey, SongSortType.CREATE_DATE)
-  val (sortDescending, onSortDescendingChange) = rememberPreference(SongSortDescendingKey, true)
+    rememberEnumPreference(
+      if (playlistId == "downloaded") DownloadedSongSortTypeKey else SongSortTypeKey,
+      SongSortType.CREATE_DATE,
+    )
+  val (sortDescending, onSortDescendingChange) = rememberPreference(
+    if (playlistId == "downloaded") DownloadedSongSortDescendingKey else SongSortDescendingKey,
+    true,
+  )
 
   val downloadUtil = LocalDownloadUtil.current
   var downloadState by remember { mutableIntStateOf(Download.STATE_STOPPED) }

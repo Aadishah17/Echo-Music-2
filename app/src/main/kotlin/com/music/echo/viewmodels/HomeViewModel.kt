@@ -21,6 +21,7 @@ import com.music.innertube.utils.completed
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import echo.music.iad1tya.constants.HideExplicitKey
+import echo.music.iad1tya.constants.BlockedArtistsKey
 import echo.music.iad1tya.constants.HideVideoSongsKey
 import echo.music.iad1tya.constants.HideYoutubeShortsKey
 import echo.music.iad1tya.constants.InnerTubeCookieKey
@@ -28,6 +29,7 @@ import echo.music.iad1tya.constants.QuickPicks
 import echo.music.iad1tya.constants.QuickPicksKey
 import echo.music.iad1tya.constants.RecommendationSourceKey
 import echo.music.iad1tya.constants.RecommendationSource
+import echo.music.iad1tya.constants.SongSortType
 import echo.music.iad1tya.db.MusicDatabase
 import echo.music.iad1tya.db.entities.Album
 import echo.music.iad1tya.db.entities.LocalItem
@@ -39,6 +41,7 @@ import echo.music.iad1tya.models.SimilarRecommendation
 import echo.music.iad1tya.utils.SyncUtils
 import echo.music.iad1tya.utils.dataStore
 import echo.music.iad1tya.utils.get
+import echo.music.iad1tya.utils.filterQuickPickSongs
 import echo.music.iad1tya.utils.reportException
 import echo.music.iad1tya.utils.selectHeroCarouselSongs
 import echo.music.iad1tya.utils.toCarouselSong
@@ -103,7 +106,7 @@ constructor(
       }
       .distinctUntilChanged()
 
-  val quickPicks = MutableStateFlow<List<Song>?>(null)
+  private val quickPicksSource = MutableStateFlow<List<Song>?>(null)
   val dailyDiscover = MutableStateFlow<List<DailyDiscoverItem>?>(null)
   val forgottenFavorites = MutableStateFlow<List<Song>?>(null)
   val keepListening = MutableStateFlow<List<LocalItem>?>(null)
@@ -118,6 +121,27 @@ constructor(
   private val carouselAccountSongs = MutableStateFlow<List<SongItem>>(emptyList())
   private val accountPlaylistMutex = Mutex()
   private val carouselRadioSongs = MutableStateFlow<List<SongItem>>(emptyList())
+  private val carouselShuffleSeed = MutableStateFlow(Random.nextInt())
+  private val carouselLibrary =
+    combine(database.carouselLibrarySongs(), carouselAccountSongs, carouselShuffleSeed) {
+        local, account, seed ->
+      local.map { it.toCarouselSong() }.shuffled(Random(seed)) to
+        account.shuffled(Random(seed))
+    }
+  private val carouselFilters =
+    combine(context.dataStore.data, database.hiddenFromQuickPicksSongIds()) { preferences, hidden ->
+      preferences to hidden.toSet()
+    }
+  val quickPicks: StateFlow<List<Song>?> =
+    combine(quickPicksSource, carouselFilters) { songs, filters ->
+      val (preferences, hidden) = filters
+      songs?.let {
+        filterQuickPickSongs(
+          it, hidden, preferences[BlockedArtistsKey].orEmpty(),
+          preferences[HideExplicitKey] ?: false, preferences[HideVideoSongsKey] ?: false,
+        )
+      }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
   private val carouselRecommendations =
     combine(carouselRadioSongs, similarRecommendations, dailyDiscover, homePage) {
         radio, similar, discover, home ->
@@ -131,15 +155,17 @@ constructor(
   val heroSongs: StateFlow<List<SongItem>> =
     combine(
         database.recentlyPlayedSongs(),
-        database.carouselLibrarySongs(),
-        carouselAccountSongs,
+        carouselLibrary,
         carouselRecommendations,
-        context.dataStore.data,
-      ) { recent, library, account, recommendations, preferences ->
+        carouselFilters,
+      ) { recent, library, recommendations, filters ->
+        val (preferences, hidden) = filters
         selectHeroCarouselSongs(
           recentlyPlayed = recent.map { it.toCarouselSong() },
-          library = library.map { it.toCarouselSong() },
-          account = account,
+          library = library.first,
+          account = library.second,
+          excludedSongIds = hidden,
+          blockedArtists = preferences[BlockedArtistsKey] ?: emptySet(),
           recommendations = recommendations,
           hideExplicit = preferences[HideExplicitKey] ?: false,
           hideVideoSongs = preferences[HideVideoSongsKey] ?: false,
@@ -360,12 +386,18 @@ constructor(
   }
 
   private suspend fun getQuickPicks() {
-    val hideVideoSongs = context.dataStore.get(HideVideoSongsKey, false)
+    val preferences = context.dataStore.data.first()
+    val hideVideoSongs = preferences[HideVideoSongsKey] ?: false
+    val hidden = database.hiddenFromQuickPicksSongIds().first().toSet()
+    fun List<Song>.eligible() = filterQuickPickSongs(
+      this, hidden, preferences[BlockedArtistsKey].orEmpty(),
+      preferences[HideExplicitKey] ?: false, hideVideoSongs,
+    )
     when (quickPicksEnum.first()) {
       QuickPicks.QUICK_PICKS -> {
-        val relatedSongs = database.quickPicks().first().filterVideoSongs(hideVideoSongs)
+        val relatedSongs = database.quickPicks().first().eligible()
         val forgotten =
-          database.forgottenFavorites().first().filterVideoSongs(hideVideoSongs).take(8)
+          database.forgottenFavorites().first().eligible().take(8)
 
         val recentSong = database.events().first().firstOrNull()?.song
         val ytSimilarSongs = mutableListOf<Song>()
@@ -387,15 +419,16 @@ constructor(
         }
 
         val combined =
-          (relatedSongs + forgotten + ytSimilarSongs).distinctBy { it.id }.shuffled().take(20)
+          (relatedSongs + forgotten + ytSimilarSongs).eligible().shuffled().take(20)
 
-        quickPicks.value =
+        quickPicksSource.value =
           combined
             .ifEmpty { relatedSongs.shuffled().take(20) }
             .ifEmpty {
               database
-                .songs(echo.music.iad1tya.constants.SongSortType.CREATE_DATE, true)
+                .songs(SongSortType.CREATE_DATE, true)
                 .first()
+                .eligible()
                 .shuffled()
                 .take(20)
             }
@@ -403,20 +436,21 @@ constructor(
       QuickPicks.LAST_LISTEN -> {
         val song = database.events().first().firstOrNull()?.song
         if (song != null && database.hasRelatedSongs(song.id)) {
-          quickPicks.value =
+          quickPicksSource.value =
             database
               .getRelatedSongs(song.id)
               .first()
-              .filterVideoSongs(hideVideoSongs)
+              .eligible()
               .shuffled()
               .take(20)
         } else {
-          val fallbackSongs = database.quickPicks().first().filterVideoSongs(hideVideoSongs)
-          quickPicks.value =
+          val fallbackSongs = database.quickPicks().first().eligible()
+          quickPicksSource.value =
             fallbackSongs.shuffled().take(20).ifEmpty {
               database
-                .songs(echo.music.iad1tya.constants.SongSortType.CREATE_DATE, true)
+                .songs(SongSortType.CREATE_DATE, true)
                 .first()
+                .eligible()
                 .shuffled()
                 .take(20)
             }
@@ -881,6 +915,8 @@ constructor(
         library = database.carouselLibrarySongs().first()
           .filterNot { it.song.isLocal }.map { it.toCarouselSong() },
         account = carouselAccountSongs.value,
+        excludedSongIds = database.hiddenFromQuickPicksSongIds().first().toSet(),
+        blockedArtists = context.dataStore.get(BlockedArtistsKey, emptySet()),
         recommendations = emptyList(),
         hideExplicit = context.dataStore.get(HideExplicitKey, false),
         hideVideoSongs = context.dataStore.get(HideVideoSongsKey, false),
@@ -901,6 +937,7 @@ constructor(
 
   fun refresh() {
     if (isRefreshing.value) return
+    carouselShuffleSeed.value = Random.nextInt()
     viewModelScope.launch(Dispatchers.IO) {
       try {
         isRefreshing.value = true

@@ -4,6 +4,7 @@ import com.music.innertube.models.Album
 import com.music.innertube.models.Artist
 import com.music.innertube.models.SongItem
 import com.music.innertube.models.filterExplicit
+import com.music.innertube.models.filterBlockedArtists
 import com.music.innertube.models.filterVideoSongs
 import echo.music.iad1tya.db.entities.Song
 
@@ -26,6 +27,8 @@ fun selectHeroCarouselSongs(
   library: List<SongItem>,
   recommendations: List<SongItem>,
   account: List<SongItem> = emptyList(),
+  excludedSongIds: Set<String> = emptySet(),
+  blockedArtists: Set<String> = emptySet(),
   hideExplicit: Boolean = false,
   hideVideoSongs: Boolean = false,
   limit: Int = 20,
@@ -34,7 +37,9 @@ fun selectHeroCarouselSongs(
 
   val sources =
     listOf(recentlyPlayed, interleaveSongs(listOf(library, account)), recommendations).map { songs ->
-      songs.filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs).distinctBy { it.id }
+      songs.filterNot { it.id in excludedSongIds }
+        .filterBlockedArtists(blockedArtists)
+        .filterExplicit(hideExplicit).filterVideoSongs(hideVideoSongs).distinctBy { it.id }
     }
   val candidates = interleaveSongs(sources).distinctBy { it.id }
 

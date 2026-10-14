@@ -316,7 +316,7 @@ constructor(
                 ),
                 artist.artist.thumbnailUrl?.toUri(),
                 MediaMetadata.MEDIA_TYPE_ARTIST,
-                singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+                singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
               )
             }
           MusicService.ALBUM ->
@@ -853,7 +853,7 @@ constructor(
               ),
               artist.artist.thumbnailUrl?.toUri(),
               MediaMetadata.MEDIA_TYPE_ARTIST,
-              singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+              singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
             )
           }
         } else {

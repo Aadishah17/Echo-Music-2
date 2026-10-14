@@ -1,6 +1,7 @@
 package echo.music.iad1tya.utils
 
 import com.music.innertube.models.Album
+import com.music.innertube.models.Artist
 import com.music.innertube.models.SongItem
 import echo.music.iad1tya.db.entities.Song
 import echo.music.iad1tya.db.entities.SongEntity
@@ -106,6 +107,30 @@ class HeroCarouselSongsTest {
     assertTrue(selectHeroCarouselSongs(emptyList(), emptyList(), emptyList()).isEmpty())
     assertTrue(selectHeroCarouselSongs(listOf(song("recent")), emptyList(), emptyList(), limit = 0).isEmpty())
     assertTrue(selectHeroCarouselSongs(listOf(song("recent")), emptyList(), emptyList(), limit = -1).isEmpty())
+  }
+
+  @Test
+  fun hiddenSongsCannotReappearFromAnySource() {
+    val hidden = song("hidden")
+    val allowed = song("allowed")
+    val result = selectHeroCarouselSongs(
+      listOf(hidden), listOf(hidden), listOf(hidden, allowed),
+      account = listOf(hidden), excludedSongIds = setOf(hidden.id),
+    )
+
+    assertEquals(listOf(allowed), result)
+  }
+
+  @Test
+  fun blockedArtistsAreExcludedFromRecentSavedAndRecommendedSongs() {
+    val blocked = song("blocked").copy(artists = listOf(Artist("Blocked artist", "blocked-id")))
+    val allowed = song("allowed")
+    val result = selectHeroCarouselSongs(
+      listOf(blocked), listOf(blocked), listOf(blocked, allowed), account = listOf(blocked),
+      blockedArtists = setOf("blocked-id||Blocked artist"),
+    )
+
+    assertEquals(listOf(allowed), result)
   }
 
   @Test

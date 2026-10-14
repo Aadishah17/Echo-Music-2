@@ -657,6 +657,9 @@ interface DatabaseDao {
   )
   fun carouselLibrarySongs(): Flow<List<Song>>
 
+  @Query("SELECT id FROM song WHERE hideFromQuickPicks = 1")
+  fun hiddenFromQuickPicksSongIds(): Flow<List<String>>
+
   @Transaction
   @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
   @Query(

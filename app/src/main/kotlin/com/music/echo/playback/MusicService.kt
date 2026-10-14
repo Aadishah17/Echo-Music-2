@@ -41,10 +41,12 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.audio.SonicAudioProcessor
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.CacheWriter
 import androidx.media3.datasource.cache.CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.datasource.cronet.CronetDataSource
@@ -69,12 +71,14 @@ import com.music.innertube.YouTube
 import com.music.innertube.models.IpVersion
 import com.music.innertube.models.SongItem
 import com.music.innertube.models.WatchEndpoint
+import com.music.innertube.models.response.PlayerResponse
 import dagger.hilt.android.AndroidEntryPoint
 import echo.music.iad1tya.MainActivity
 import echo.music.iad1tya.R
 import echo.music.iad1tya.constants.AudioNormalizationKey
 import echo.music.iad1tya.constants.AudioOffload
 import echo.music.iad1tya.constants.AudioQualityKey
+import echo.music.iad1tya.constants.AudioQuality
 import echo.music.iad1tya.constants.AutoDownloadOnLikeKey
 import echo.music.iad1tya.constants.AutoLoadMoreKey
 import echo.music.iad1tya.constants.AutoSkipNextOnErrorKey
@@ -82,6 +86,7 @@ import echo.music.iad1tya.constants.AutomixCrossfadeKey
 import echo.music.iad1tya.constants.CrossfadeDurationKey
 import echo.music.iad1tya.constants.CrossfadeEnabledKey
 import echo.music.iad1tya.constants.CrossfadeGaplessKey
+import echo.music.iad1tya.constants.StopMusicOnTaskClearKey
 import echo.music.iad1tya.constants.DisableLoadMoreWhenRepeatAllKey
 import echo.music.iad1tya.constants.DiscordTokenKey
 import echo.music.iad1tya.constants.EnableBitPerfectUsbDacKey
@@ -164,6 +169,7 @@ import echo.music.iad1tya.utils.CoilBitmapLoader
 import echo.music.iad1tya.utils.NetworkConnectivityObserver
 import echo.music.iad1tya.utils.ScrobbleManager
 import echo.music.iad1tya.utils.YTPlayerUtils
+import echo.music.iad1tya.utils.YTPlayerUtils.PlaybackData
 import echo.music.iad1tya.utils.dataStore
 import echo.music.iad1tya.utils.get
 import echo.music.iad1tya.utils.isLocalMediaId
@@ -177,6 +183,7 @@ import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.time.LocalDateTime
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.seconds
@@ -507,7 +514,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private var retryCount = 0
   private var silenceSkipJob: Job? = null
 
-  private val songUrlCache = HashMap<String, Pair<String, Long>>()
+  private val songUrlCache = ConcurrentHashMap<String, ResolvedStream>()
 
   private val bypassCacheForQualityChange = mutableSetOf<String>()
 
@@ -3527,9 +3534,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       val activeQualityInCache =
         songUrlCache.keys
           .find { it.startsWith("${mediaId}_") }
-          ?.substringAfter("_")
+          ?.substringAfterLast("_")
           ?.let {
-            runCatching { echo.music.iad1tya.constants.AudioQuality.valueOf(it) }.getOrNull()
+            runCatching { AudioQuality.valueOf(it) }.getOrNull()
           }
       val lockedQuality = activeQualityInCache ?: audioQuality
 
@@ -3547,30 +3554,30 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           )
         ) {
           songUrlCache["${mediaId}_${lockedQuality.name}"]
-            ?.takeIf { it.second > System.currentTimeMillis() }
+            ?.takeIf { it.expiresAtMs > System.currentTimeMillis() }
             ?.let {
               scope.launch(Dispatchers.IO) { recoverSong(mediaId, isOfflinePlayback = true) }
-              return@Factory dataSpec.withUri(it.first.toUri())
+              return@Factory it.resolve(dataSpec)
             }
           // Fall through to fetch real URL since it's only partially downloaded
         }
 
         if (playerCache.isCached(mediaId, dataSpec.position, CHUNK_LENGTH)) {
           songUrlCache["${mediaId}_${lockedQuality.name}"]
-            ?.takeIf { it.second > System.currentTimeMillis() }
+            ?.takeIf { it.expiresAtMs > System.currentTimeMillis() }
             ?.let {
               scope.launch(Dispatchers.IO) { recoverSong(mediaId, isOfflinePlayback = true) }
-              return@Factory dataSpec.withUri(it.first.toUri())
+              return@Factory it.resolve(dataSpec)
             }
           Timber.tag(TAG).w("Ghost cache entry for $mediaId, re-fetching")
           playerCache.removeResource(mediaId)
         }
 
         songUrlCache["${mediaId}_${lockedQuality.name}"]
-          ?.takeIf { it.second > System.currentTimeMillis() }
+          ?.takeIf { it.expiresAtMs > System.currentTimeMillis() }
           ?.let {
             scope.launch(Dispatchers.IO) { recoverSong(mediaId, isOfflinePlayback = true) }
-            return@Factory dataSpec.withUri(it.first.toUri())
+            return@Factory it.resolve(dataSpec)
           }
       } else {
         Timber.tag("MusicService").i("BYPASSING CACHE for $mediaId due to quality change")
@@ -3589,11 +3596,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
             Timber.tag("MusicService").e("ADDON STREAM RESULT: url=${extStream?.url} format=${extStream?.format} quality=${extStream?.quality} audioQuality=${extStream?.audioQuality}")
             if (extStream != null) {
                val flac = extStream.format.contains("flac", ignoreCase = true)
-               Result.success(echo.music.iad1tya.utils.YTPlayerUtils.PlaybackData(
+               Result.success(PlaybackData(
                  audioConfig = null,
                  videoDetails = null,
                  playbackTracking = null,
-                 format = com.music.innertube.models.response.PlayerResponse.StreamingData.Format(
+                 format = PlayerResponse.StreamingData.Format(
                     itag = 0,
                     url = extStream.url,
                     mimeType = if (flac) "audio/flac" else "audio/mpeg",
@@ -3705,22 +3712,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           Timber.tag("MusicService").d("Cleared bypass cache flag for $mediaId after fresh fetch")
         }
 
-        val streamUrl = nonNullPlayback.streamUrl
-
-        songUrlCache["${mediaId}_${lockedQuality.name}"] =
-          streamUrl to System.currentTimeMillis() + (nonNullPlayback.streamExpiresInSeconds * 1000L)
-
-        var builder = dataSpec.buildUpon().setKey(targetCacheKey).setUri(streamUrl.toUri())
-        val finalHeaders =
-          nonNullPlayback.headers
-            ?: echo.music.iad1tya.utils.InnerTubeXResolver.headersFor(streamUrl)
-            ?: echo.music.iad1tya.utils.PlayerClient.forStreamUrl(streamUrl).mediaHeaders()
-        android.util.Log.d(
-          "MusicService",
-          "EXOPLAYER REQUEST: url=$streamUrl headers=$finalHeaders"
-        )
-        builder = builder.setHttpRequestHeaders(finalHeaders)
-        return@Factory builder.build()
+        val stream = ResolvedStream.from(nonNullPlayback)
+        songUrlCache["${mediaId}_${lockedQuality.name}"] = stream
+        return@Factory stream.resolve(dataSpec.buildUpon().setKey(targetCacheKey).build())
       }
     }
   }
@@ -3942,7 +3936,12 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   override fun onDestroy() {
     isRunning = false
+    crossfadeTriggerJob?.cancel()
+    crossfadeJob?.cancel()
     releasePrebuffered()
+    secondaryPlayer?.release()
+    secondaryPlayer = null
+    if (fadingPlayer != null) cleanupCrossfade()
 
     try {
       unregisterReceiver(screenStateReceiver)
@@ -3983,36 +3982,25 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
 
   override fun onTaskRemoved(rootIntent: Intent?) {
     super.onTaskRemoved(rootIntent)
+    if (!::player.isInitialized) return
 
-    val stopOnTaskClear = dataStore.get(echo.music.iad1tya.constants.StopMusicOnTaskClearKey, false)
-    
-    if (::player.isInitialized && stopOnTaskClear && player.isPlaying) {
-      player.pause()
-    }
-
-    if (::player.isInitialized && dataStore.get(PersistentQueueKey, true)) {
+    if (dataStore.get(PersistentQueueKey, true)) {
       saveQueueToDisk()
     }
+    if (!shouldStopPlaybackOnTaskRemoval(
+        dataStore.get(StopMusicOnTaskClearKey, false), player.playWhenReady, player.playbackState,
+      )) return
 
-    // Keep background playback alive when the user dismisses the UI while a song is
-    // actually playing. If playback is paused/stopped, however, there is no reason to
-    // retain the foreground service or its MediaSession notification.
-    if (::player.isInitialized && !player.isPlaying) {
-      Timber.tag(TAG).d("App task removed while playback is inactive; stopping service")
-
-      // Stop the playback engine first so Media3 cannot promote the service again and
-      // recreate the notification after it has been dismissed.
-      player.stop()
-
-      // Remove both the foreground-service notification and any notification last
-      // published by Media3's notification provider.
-      stopForeground(STOP_FOREGROUND_REMOVE)
-      getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
-
-      // onDestroy() releases the MediaLibrarySession, player, audio focus and other
-      // resources. Releasing the session there also removes Android's media controls.
-      stopSelf()
-    }
+    crossfadeTriggerJob?.cancel()
+    crossfadeJob?.cancel()
+    releasePrebuffered()
+    fadingPlayer?.pause()
+    secondaryPlayer?.pause()
+    player.playWhenReady = false
+    player.stop()
+    stopForeground(STOP_FOREGROUND_REMOVE)
+    getSystemService(NotificationManager::class.java)?.cancel(NOTIFICATION_ID)
+    stopSelf()
   }
 
   override fun onGetSession(controllerInfo: MediaSession.ControllerInfo) = mediaSession
@@ -4667,8 +4655,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   private fun prebufferSecondaryPlayer(plan: AutomixPlan?) {
     if (isCrossfading.value || secondaryPlayer != null || prebuffered != null) return
 
-    val savedRepeatMode = cachedRepeatMode
-    val savedShuffleEnabled = cachedShuffleEnabled
+    val savedRepeatMode = player.repeatMode
+    val savedShuffleEnabled = player.shuffleModeEnabled
     if (isBitPerfectEnabled && usbDacManager.activeDacFlow.value is echo.music.usbaudio.DacDeviceState.Connected) {
       return
     }
@@ -4725,8 +4713,8 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
       return
     }
 
-    val savedRepeatMode = runBlocking { dataStore.get(RepeatModeKey, REPEAT_MODE_OFF) }
-    val savedShuffleEnabled = runBlocking { dataStore.get(ShuffleModeKey, false) }
+    val savedRepeatMode = player.repeatMode
+    val savedShuffleEnabled = player.shuffleModeEnabled
 
     val targetIndex =
       if (savedRepeatMode == REPEAT_MODE_ONE) {
@@ -4799,6 +4787,9 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     _playerFlow.value = player
     secondaryPlayer = null
 
+    currentPlayer.removeListener(this)
+    currentPlayer.removeListener(sleepTimer)
+
     // The outgoing player keeps its full playlist and keeps advancing in real time
     // while it fades out. If it reaches its own natural end before cleanupCrossfade
     // stops it (trigger-time math off, or the fade loop lagging behind due to a
@@ -4814,9 +4805,6 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     } catch (e: Exception) {
       Timber.tag(TAG).d(e, "Failed to truncate fading player's playlist")
     }
-
-    fadingPlayer?.removeListener(this)
-    fadingPlayer?.removeListener(sleepTimer)
 
     player.addListener(
       object : Player.Listener {
@@ -4938,9 +4926,11 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
           for (i in 0..steps) {
             if (!isActive) break
 
-            while (!player.playWhenReady && isActive) {
-              delay(100)
+            while (!player.isPlaying && isActive && player.playerError == null &&
+              fadingPlayer?.playbackState != Player.STATE_ENDED) {
+              delay(15)
             }
+            if (!isActive || player.playerError != null) break
 
             if (
               fadingPlayer?.playbackState == androidx.media3.common.Player.STATE_ENDED ||
@@ -5001,7 +4991,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
     fadingPlayer = null
     isCrossfading.value = false
     isAutomixing.value = false
-    sleepTimer.notifySongTransition()
+    if (isRunning) sleepTimer.notifySongTransition()
   }
 
   companion object {
@@ -5087,22 +5077,23 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                   connectivityManager = connectivityManager
                 )
 
-              playbackData.getOrNull()?.streamUrl?.let { streamUrl ->
-                songUrlCache["${mediaId}_${audioQuality.name}"] =
-                  Pair(streamUrl, System.currentTimeMillis() + 1000 * 60 * 60)
+              playbackData.getOrNull()?.let { playback ->
+                val stream = ResolvedStream.from(playback)
+                songUrlCache["${mediaId}_${audioQuality.name}"] = stream
                 Timber.tag(TAG).d("Preloaded stream for $mediaId")
 
                 kotlin
                   .runCatching {
                     Timber.tag(TAG).d("AOT Preloading bytes for $mediaId")
                     val dataSpec =
-                      androidx.media3.datasource.DataSpec.Builder()
-                        .setUri(android.net.Uri.parse(streamUrl))
+                      DataSpec.Builder()
+                        .setUri(stream.url.toUri())
+                        .setHttpRequestHeaders(stream.headers)
                         .setKey("${mediaId}_${audioQuality.name}")
                         .build()
                     val cacheDataSource = createCacheDataSource().createDataSource()
                     val cacheWriter =
-                      androidx.media3.datasource.cache.CacheWriter(
+                      CacheWriter(
                         cacheDataSource,
                         dataSpec,
                         null,
