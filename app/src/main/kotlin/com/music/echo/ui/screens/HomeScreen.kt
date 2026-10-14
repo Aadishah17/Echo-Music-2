@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -1184,15 +1185,18 @@ fun HomeScreen(
                     val configuration = LocalConfiguration.current
                     val heroWidth = configuration.screenWidthDp.dp - 32.dp
 
-                    val carouselState = rememberCarouselState { songs.size }
-                    LaunchedEffect(carouselState, songs) {
-                      if (carouselState.currentItem >= songs.size) {
+                    val currentSongs by rememberUpdatedState(songs)
+                    val carouselState = rememberCarouselState { currentSongs.size }
+                    val songIds = remember(songs) { songs.map { it.id } }
+                    LaunchedEffect(carouselState, songIds) {
+                      if (carouselState.currentItem >= currentSongs.size) {
                         carouselState.scrollToItem(0)
                       }
                       while (true) {
                         delay(5000)
-                        if (songs.size > 1 && !carouselState.isScrollInProgress) {
-                          val nextIndex = (carouselState.currentItem + 1) % songs.size
+                        val size = currentSongs.size
+                        if (size > 1 && !carouselState.isScrollInProgress) {
+                          val nextIndex = (carouselState.currentItem + 1) % size
                           carouselState.animateScrollToItem(nextIndex)
                         }
                       }

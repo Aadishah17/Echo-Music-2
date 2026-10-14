@@ -5089,7 +5089,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                       DataSpec.Builder()
                         .setUri(stream.url.toUri())
                         .setHttpRequestHeaders(stream.headers)
-                        .setKey("${mediaId}_${audioQuality.name}")
+                        .setKey(mediaId)
                         .build()
                     val cacheDataSource = createCacheDataSource().createDataSource()
                     val cacheWriter =

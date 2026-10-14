@@ -114,13 +114,11 @@ class YouTubeQueue(
             if (e is CancellationException) throw e
             retryCount++
             if (attempt == maxRetries) {
-              continuation = null
               throw e
             }
           }
         }
       }
-      continuation = null
       emptyList()
     }
   }

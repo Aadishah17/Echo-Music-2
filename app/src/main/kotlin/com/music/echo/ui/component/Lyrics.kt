@@ -627,8 +627,8 @@ fun Lyrics(
     isAutoScrollEnabled = true
   }
 
-  LaunchedEffect(lyrics) {
-    if (lyrics.isNullOrEmpty() || !lyrics.startsWith("[")) {
+  LaunchedEffect(lyrics, isSynced) {
+    if (!isSynced) {
       currentLineIndex = -1
       return@LaunchedEffect
     }

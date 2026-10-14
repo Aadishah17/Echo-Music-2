@@ -894,7 +894,7 @@ constructor(
       library.await() + playlistSongs.flatten()
     }
     if (YouTube.cookie == cookie) {
-      carouselAccountSongs.value = songs.distinctBy { it.id }
+      carouselAccountSongs.update { current -> (current + songs).distinctBy { it.id } }
       if (carouselRadioSongs.value.isEmpty() && songs.isNotEmpty()) {
         loadCarouselRadioSongs()
       }
