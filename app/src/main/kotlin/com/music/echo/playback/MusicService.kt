@@ -2138,6 +2138,14 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
   }
 
   fun restoreQueueSnapshot(snapshot: QueueSnapshot, playWhenReady: Boolean) {
+    if (!playerInitialized.value) {
+      if (!scope.isActive) scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+      scope.launch {
+        playerInitialized.first { it }
+        restoreQueueSnapshot(snapshot, playWhenReady)
+      }
+      return
+    }
     playQueue(
       ListQueue(snapshot.title, snapshot.items, snapshot.mediaItemIndex, snapshot.positionMs),
       playWhenReady,
