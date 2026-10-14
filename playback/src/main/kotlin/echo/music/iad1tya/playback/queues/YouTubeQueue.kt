@@ -13,7 +13,6 @@ class YouTubeQueue(
   override val preloadItem: MediaMetadata? = null,
 ) : Queue {
   private var continuation: String? = null
-  private var retryCount = 0
   private val maxRetries = 3
 
   override suspend fun getInitialStatus(): Queue.Status {
@@ -40,8 +39,7 @@ class YouTubeQueue(
           val nextResult = YouTube.next(endpoint, continuation).getOrThrow()
           endpoint = nextResult.endpoint
           continuation = nextResult.continuation
-          retryCount = 0
-          
+
           val itemsList = nextResult.items.map { it.toMediaItem() }.toMutableList()
           if (isAddon && originalAddonItem != null) {
               if (itemsList.isNotEmpty()) {
@@ -84,20 +82,16 @@ class YouTubeQueue(
   override suspend fun nextPage(): List<MediaItem> {
     return withContext(IO) {
       var lastException: Throwable? = null
+      val requestedContinuation = continuation
 
       for (attempt in 0..maxRetries) {
         try {
-          val nextResult = YouTube.next(endpoint, continuation).getOrThrow()
+          val nextResult = YouTube.next(endpoint, requestedContinuation).getOrThrow()
           endpoint = nextResult.endpoint
-          continuation = nextResult.continuation
-          retryCount = 0
+          continuation = nextResult.continuation?.takeUnless { it == requestedContinuation }
           return@withContext nextResult.items.map { it.toMediaItem() }
         } catch (e: Exception) {
           lastException = e
-          retryCount++
-          if (retryCount >= maxRetries) {
-            continuation = null
-          }
         }
       }
       throw lastException ?: Exception("Failed to get next page")

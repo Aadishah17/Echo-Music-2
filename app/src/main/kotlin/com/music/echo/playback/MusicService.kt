@@ -5151,7 +5151,7 @@ class MusicService : MediaLibraryService(), Player.Listener, PlaybackStatsListen
                     val dataSpec =
                       androidx.media3.datasource.DataSpec.Builder()
                         .setUri(android.net.Uri.parse(streamUrl))
-                        .setKey("${mediaId}_${audioQuality.name}")
+                        .setKey(mediaId)
                         .build()
                     val cacheDataSource = createCacheDataSource().createDataSource()
                     val cacheWriter =

@@ -65,6 +65,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -1196,11 +1197,12 @@ fun HomeScreen(
                     val heroWidth = configuration.screenWidthDp.dp - 32.dp
 
                     val carouselState = rememberCarouselState { distinctQuickPicks.size }
-                    LaunchedEffect(carouselState) {
+                    val quickPickCount by rememberUpdatedState(distinctQuickPicks.size)
+                    LaunchedEffect(carouselState, distinctQuickPicks.map { it.id }) {
                       while (true) {
                         kotlinx.coroutines.delay(5000)
-                        if (distinctQuickPicks.isNotEmpty() && !carouselState.isScrollInProgress) {
-                          val nextIndex = (carouselState.currentItem + 1) % distinctQuickPicks.size
+                        if (quickPickCount > 0 && !carouselState.isScrollInProgress) {
+                          val nextIndex = (carouselState.currentItem + 1) % quickPickCount
                           carouselState.animateScrollToItem(nextIndex)
                         }
                       }

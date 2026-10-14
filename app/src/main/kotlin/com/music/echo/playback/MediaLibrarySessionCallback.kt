@@ -316,7 +316,7 @@ constructor(
                 ),
                 artist.artist.thumbnailUrl?.toUri(),
                 MediaMetadata.MEDIA_TYPE_ARTIST,
-                singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+                singleItemStyle = artistItemStyle(isAutomotive),
               )
             }
           MusicService.ALBUM ->
@@ -430,11 +430,16 @@ constructor(
     session: MediaLibrarySession,
     browser: MediaSession.ControllerInfo,
     mediaId: String,
-  ): ListenableFuture<LibraryResult<MediaItem>> =
-    scope.future(Dispatchers.IO) {
-      getMediaItem(mediaId)?.let { LibraryResult.ofItem(it, null) }
+  ): ListenableFuture<LibraryResult<MediaItem>> {
+    val isAutomotive =
+      browser.packageName == "com.google.android.projection.gearhead" ||
+        browser.packageName == "com.google.android.gms.car" ||
+        browser.packageName == "com.android.systemui"
+    return scope.future(Dispatchers.IO) {
+      getMediaItem(mediaId, isAutomotive)?.let { LibraryResult.ofItem(it, null) }
         ?: LibraryResult.ofError(SessionError.ERROR_UNKNOWN)
     }
+  }
 
   /**
    * Handles media search requests by notifying the controller that results changed. Actual results
@@ -826,7 +831,14 @@ constructor(
       ),
     )
 
-  private suspend fun getMediaItem(mediaId: String): MediaItem? {
+  private fun artistItemStyle(isAutomotive: Boolean) =
+    if (isAutomotive) {
+      MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_LIST_ITEM
+    } else {
+      MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM
+    }
+
+  private suspend fun getMediaItem(mediaId: String, isAutomotive: Boolean): MediaItem? {
     val path = mediaId.split("/")
     val type = path.firstOrNull() ?: return null
 
@@ -853,7 +865,7 @@ constructor(
               ),
               artist.artist.thumbnailUrl?.toUri(),
               MediaMetadata.MEDIA_TYPE_ARTIST,
-              singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+              singleItemStyle = artistItemStyle(isAutomotive),
             )
           }
         } else {
