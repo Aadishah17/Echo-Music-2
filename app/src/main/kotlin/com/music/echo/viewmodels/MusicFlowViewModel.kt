@@ -12,6 +12,7 @@ import echo.music.iad1tya.db.entities.LyricsEntity
 import echo.music.iad1tya.db.entities.RecommendationExclusionEntity
 import echo.music.iad1tya.lyrics.LyricsHelper
 import echo.music.iad1tya.models.MediaMetadata
+import echo.music.iad1tya.models.toMediaMetadata
 import echo.music.iad1tya.musicflow.MusicFlowCoordinator
 import echo.music.iad1tya.musicflow.MusicFlowItem
 import echo.music.iad1tya.musicflow.MusicFlowPlaybackStatus
@@ -149,6 +150,13 @@ constructor(
 
     attachedJobs +=
       viewModelScope.launch {
+        playerConnection.isPlaying.collect { isPlaying ->
+          if (isPlaying) consecutiveFailures = 0
+        }
+      }
+
+    attachedJobs +=
+      viewModelScope.launch {
         playerConnection.error.collectLatest { error ->
           if (error == null) return@collectLatest
           val failedId = playerConnection.player.currentMediaItem?.mediaId ?: return@collectLatest
@@ -196,6 +204,7 @@ constructor(
       request(selected, playWhenReady = true)
     }
     prefetchIfNeeded()
+    prefetchUpcomingLyrics(session.state.value.items, session.state.value.selectedIndex + 1)
   }
 
   fun onPageSettled(index: Int) {
@@ -209,6 +218,7 @@ constructor(
     session.select(index)
     request(item.songId, playWhenReady = preferences.value.autoplay)
     prefetchIfNeeded()
+    prefetchUpcomingLyrics(items, index + 1)
   }
 
   fun togglePlayPause() {
@@ -313,7 +323,6 @@ constructor(
     playbackStatus.value =
       when {
         selected != null && mediaId == selected -> {
-          consecutiveFailures = 0
           MusicFlowPlaybackStatus.Synced
         }
         current is MusicFlowPlaybackStatus.Blocked -> current
@@ -346,6 +355,25 @@ constructor(
         }
       database.query { upsert(LyricsEntity(metadata.id, result.lyrics.orEmpty(), result.providerName)) }
     }
+
+  private fun prefetchUpcomingLyrics(items: List<MusicFlowItem>, nextIndex: Int) {
+    val prefs = preferences.value
+    if (!prefs.lyrics || prefs.dataSaver) return
+    val nextItem = items.getOrNull(nextIndex) ?: return
+    viewModelScope.launch(Dispatchers.IO) {
+      if (database.lyrics(nextItem.songId).first() == null) {
+        try {
+          val metadata = nextItem.song.toMediaMetadata()
+          val result = lyricsHelper.getLyrics(metadata)
+          database.query {
+            upsert(LyricsEntity(metadata.id, result.lyrics.orEmpty(), result.providerName))
+          }
+        } catch (e: Exception) {
+          if (e is CancellationException) throw e
+        }
+      }
+    }
+  }
 
   override fun onCleared() {
     detach()

@@ -78,9 +78,10 @@ constructor(
 
   override suspend fun offlineCandidates(): List<MusicFlowItem> =
     withContext(Dispatchers.IO) {
-      database.downloadedSongsByCreateDateAsc().first().shuffled().map {
-        MusicFlowItem(it.toMusicFlowSongItem(), MusicFlowSource.OFFLINE)
-      }
+      database.downloadedSongsByCreateDateAsc().first().shuffled()
+        .map { it.toMusicFlowSongItem() }
+        .applyContentFilters()
+        .map { MusicFlowItem(it, MusicFlowSource.OFFLINE) }
     }
 
   private suspend fun List<SongItem>.applyContentFilters(): List<SongItem> {

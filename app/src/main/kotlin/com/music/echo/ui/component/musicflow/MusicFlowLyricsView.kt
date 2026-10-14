@@ -40,17 +40,23 @@ fun MusicFlowLyricsView(
     contentAlignment = Alignment.TopStart,
     contentKey = { it.index },
     transitionSpec = {
+      val isInitialEntry = initialState.index < 0
       val direction = if (targetState.index >= initialState.index) 1 else -1
-      (fadeIn(tween(duration)) +
-          slideInVertically(tween(duration, easing = FastOutSlowInEasing)) {
-            if (reduceMotion) 0 else enterOffset * direction
-          })
-        .togetherWith(
+      val enterTransition =
+        if (isInitialEntry || reduceMotion) {
+          fadeIn(tween(duration))
+        } else {
+          fadeIn(tween(duration)) +
+            slideInVertically(tween(duration, easing = FastOutSlowInEasing)) { enterOffset * direction }
+        }
+      val exitTransition =
+        if (isInitialEntry || reduceMotion) {
+          fadeOut(tween(if (reduceMotion) 0 else 180))
+        } else {
           fadeOut(tween(if (reduceMotion) 0 else 180)) +
-            slideOutVertically(tween(duration, easing = FastOutSlowInEasing)) {
-              if (reduceMotion) 0 else -exitOffset * direction
-            }
-        )
+            slideOutVertically(tween(duration, easing = FastOutSlowInEasing)) { -exitOffset * direction }
+        }
+      enterTransition.togetherWith(exitTransition)
         .using(SizeTransform(sizeAnimationSpec = { _, _ -> tween(duration) }))
     },
     label = "MusicFlowLyrics",

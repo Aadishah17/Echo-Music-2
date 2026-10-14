@@ -1246,6 +1246,7 @@ class MainActivity : ComponentActivity() {
             }
           }
 
+        val expandPlayer = remember(playerBottomSheetState) { { playerBottomSheetState.expandSoft() } }
         CompositionLocalProvider(
           LocalHapticFeedback provides customHapticFeedback,
           LocalGlassEffectConfig provides glassEffectConfig,
@@ -1260,7 +1261,7 @@ class MainActivity : ComponentActivity() {
           LocalShimmerTheme provides getShimmerTheme(),
           LocalSyncUtils provides syncUtils,
           LocalListenTogetherManager provides listenTogetherManager,
-          LocalExpandPlayer provides { playerBottomSheetState.expandSoft() },
+          LocalExpandPlayer provides expandPlayer,
         ) {
           Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },

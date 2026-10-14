@@ -429,9 +429,9 @@ fun SettingsScreen(
       // Let's just create groups manually using itemsList which preserves order
       val accountGroup = itemsList.take(2) // Account, AI
       val listeningSummaryGroup = itemsList.drop(2).take(1) // Listening Summary
-      val playerGroup = itemsList.drop(3).take(3) // Appearance, Player, Listen Together
-      val dataGroup = itemsList.drop(6).take(4) // Content, Privacy, Storage, Backup
-      val systemGroup = itemsList.drop(10) // Update, Links, About
+      val playerGroup = itemsList.drop(3).take(4) // Appearance, Player, Music Flow, Listen Together
+      val dataGroup = itemsList.drop(7).take(4) // Content, Privacy, Storage, Backup
+      val systemGroup = itemsList.drop(11) // Update, Links, About
 
       if (accountGroup.isNotEmpty()) {
         Material3SettingsGroup(scrollState = scrollState, items = accountGroup)
