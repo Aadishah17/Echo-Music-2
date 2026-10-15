@@ -962,7 +962,7 @@
     <string name="recommendation_source_spotify">Spotify</string>
     <string name="spotify_recommendation_login_required">Spotify n\'est pas connecté. Connectez votre compte dans Paramètres > Intégrations pour utiliser les recommandations Spotify.</string>
     <string name="varispeed">Activer la vitesse variable</string>
-    <string name="varispeed_description">Lier la hauteur à la vitesse de lecture, produisant des effets d'accélération et de ralentissement de type magnétophone</string>
+    <string name="varispeed_description">Lier la hauteur à la vitesse de lecture, produisant des effets d\'accélération et de ralentissement de type magnétophone</string>
 
     <string name="speed">Vitesse</string>
 </resources>
