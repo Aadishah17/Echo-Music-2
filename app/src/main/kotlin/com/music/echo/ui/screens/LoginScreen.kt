@@ -3,7 +3,8 @@ package echo.music.iad1tya.ui.screens
 import android.annotation.SuppressLint
 import android.content.Intent
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
@@ -38,6 +39,7 @@ import echo.music.iad1tya.constants.VisitorDataKey
 import echo.music.iad1tya.models.AccountData
 import echo.music.iad1tya.ui.component.IconButton
 import echo.music.iad1tya.ui.utils.backToMain
+import echo.music.iad1tya.ui.utils.isTrustedHttpsUrl
 import echo.music.iad1tya.utils.rememberPreference
 import echo.music.iad1tya.utils.reportException
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -73,13 +75,35 @@ fun LoginScreen(
       WebView(webViewContext).apply {
         webViewClient =
           object : WebViewClient() {
-            override fun onPageFinished(view: WebView, url: String?) {
-              loadUrl("javascript:Android.onRetrieveVisitorData(window.yt.config_.VISITOR_DATA)")
-              loadUrl("javascript:Android.onRetrieveDataSyncId(window.yt.config_.DATASYNC_ID)")
+            override fun shouldOverrideUrlLoading(
+              view: WebView,
+              request: WebResourceRequest,
+            ): Boolean = request.isForMainFrame && !request.url.toString().isTrustedLoginUrl()
 
-              if (url?.startsWith("https://music.youtube.com") == true && !hasCompletedLogin) {
-                innerTubeCookie = CookieManager.getInstance().getCookie(url)
-                hasCompletedLogin = true
+            override fun onPageFinished(view: WebView, url: String?) {
+              if (!isTrustedHttpsUrl(url, "music.youtube.com") || hasCompletedLogin) return
+              hasCompletedLogin = true
+
+              view.evaluateJavascript(YOUTUBE_LOGIN_DATA_SCRIPT) { result ->
+                if (!isTrustedHttpsUrl(view.url, "music.youtube.com")) {
+                  hasCompletedLogin = false
+                  return@evaluateJavascript
+                }
+
+                val loginData =
+                  runCatching {
+                    Json.decodeFromString<List<String?>>(
+                      Json.decodeFromString<String>(result)
+                    )
+                  }.getOrNull()
+                if (loginData == null) {
+                  hasCompletedLogin = false
+                  return@evaluateJavascript
+                }
+
+                visitorData = loginData.getOrNull(0).orEmpty()
+                dataSyncId = loginData.getOrNull(1)?.substringBefore("||").orEmpty()
+                innerTubeCookie = CookieManager.getInstance().getCookie(url).orEmpty()
 
                 coroutineScope.launch {
                   delay(500)
@@ -146,28 +170,13 @@ fun LoginScreen(
           }
         settings.apply {
           javaScriptEnabled = true
+          allowFileAccess = false
+          allowContentAccess = false
+          mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
           setSupportZoom(true)
           builtInZoomControls = true
           displayZoomControls = false
         }
-        addJavascriptInterface(
-          object {
-            @JavascriptInterface
-            fun onRetrieveVisitorData(newVisitorData: String?) {
-              if (newVisitorData != null) {
-                visitorData = newVisitorData
-              }
-            }
-
-            @JavascriptInterface
-            fun onRetrieveDataSyncId(newDataSyncId: String?) {
-              if (newDataSyncId != null) {
-                dataSyncId = newDataSyncId.substringBefore("||")
-              }
-            }
-          },
-          "Android"
-        )
         webView = this
 
         CookieManager.getInstance().removeAllCookies(null)
@@ -188,3 +197,9 @@ fun LoginScreen(
 
   BackHandler(enabled = webView?.canGoBack() == true) { webView?.goBack() }
 }
+
+private fun String?.isTrustedLoginUrl(): Boolean =
+  isTrustedHttpsUrl(this, "accounts.google.com") || isTrustedHttpsUrl(this, "music.youtube.com")
+
+private const val YOUTUBE_LOGIN_DATA_SCRIPT =
+  "JSON.stringify([window.yt?.config_?.VISITOR_DATA ?? null, window.yt?.config_?.DATASYNC_ID ?? null])"

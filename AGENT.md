@@ -313,6 +313,10 @@ adding a unit test alongside it rather than assuming existing coverage will
 catch regressions. CI (`.github/workflows/android-build.yml`) builds the app
 but there's no dedicated test-run gate to rely on — verify manually.
 
+Remote login WebViews must disable file/content access, limit top-level navigation to trusted
+HTTPS hosts, and avoid JavaScript interfaces to remote pages. Extract credentials only after
+validating the page host; keep the shared URL policy covered by its focused unit test.
+
 ## CI
 
 - `.github/workflows/android-build.yml` — build check

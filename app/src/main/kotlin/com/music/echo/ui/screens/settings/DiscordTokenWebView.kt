@@ -1,14 +1,17 @@
 package echo.music.iad1tya.ui.screens.settings
 
 import android.annotation.SuppressLint
-import android.webkit.JavascriptInterface
-import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import echo.music.iad1tya.ui.utils.isTrustedHttpsUrl
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -22,34 +25,28 @@ fun DiscordTokenWebView(onTokenExtracted: (String) -> Unit) {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT,
             android.view.ViewGroup.LayoutParams.MATCH_PARENT
           )
-        settings.javaScriptEnabled = true
-        settings.domStorageEnabled = true
-        settings.loadWithOverviewMode = true
-        settings.useWideViewPort = true
-        settings.userAgentString =
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        settings.apply {
+          javaScriptEnabled = true
+          domStorageEnabled = true
+          allowFileAccess = false
+          allowContentAccess = false
+          mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+          loadWithOverviewMode = true
+          useWideViewPort = true
+          userAgentString =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
 
-        addJavascriptInterface(
-          object : Any() {
-            @JavascriptInterface
-            fun onToken(token: String?) {
-              if (!token.isNullOrBlank() && token != "null") {
-                val cleanToken = token.replace("\"", "")
-                if (cleanToken.isNotBlank()) {
-                  post { onTokenExtracted(cleanToken) }
-                }
-              }
-            }
-          },
-          "DiscordInterface"
-        )
-
-        webChromeClient = WebChromeClient()
         webViewClient =
           object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(
+              view: WebView,
+              request: WebResourceRequest,
+            ): Boolean = request.isForMainFrame && !request.url.toString().isTrustedDiscordUrl()
+
             override fun onPageFinished(view: WebView, url: String) {
               super.onPageFinished(view, url)
-              if (url.contains("discord.com/channels") || url.contains("discord.com/app")) {
+              if (url.isTrustedDiscordUrl() && (url.contains("/channels") || url.contains("/app"))) {
                 view.evaluateJavascript(
                   """
                                 (function() {
@@ -59,18 +56,20 @@ fun DiscordTokenWebView(onTokenExtracted: (String) -> Unit) {
                                         var pd = Object.getOwnPropertyDescriptor(iframe.contentWindow, 'localStorage');
                                         iframe.remove();
                                         Object.defineProperty(window, 'localStorage', pd);
-                                        var t = window.localStorage.getItem('token');
-                                        if (t) {
-                                            DiscordInterface.onToken(t);
-                                        }
+                                        return window.localStorage.getItem('token');
                                     } catch(e) {
-                                        DiscordInterface.onToken(null);
+                                        return null;
                                     }
                                 })();
                                 """
                     .trimIndent(),
-                  null
-                )
+                ) { result ->
+                  val token =
+                    runCatching {
+                      Json.decodeFromString<String>(result)
+                    }.getOrNull()
+                  if (!token.isNullOrBlank()) onTokenExtracted(token)
+                }
               }
             }
           }
@@ -82,3 +81,5 @@ fun DiscordTokenWebView(onTokenExtracted: (String) -> Unit) {
     }
   )
 }
+
+private fun String?.isTrustedDiscordUrl(): Boolean = isTrustedHttpsUrl(this, "discord.com")
