@@ -47,7 +47,6 @@
     <string name="app_update_uptodate">Actualizada</string>
     <string name="auto_update_check">Búsqueda automática de actualizaciones</string>
     <string name="auto_update_check_subtitle">Buscar actualizaciones automáticamente al abrir la pantalla de actualización</string>
-    <string name="update_notifications">Notificaciones de actualización</string>
     <string name="update_notifications_subtitle">Mostrar una notificación cuando haya una nueva actualización disponible</string>
     <string name="settings_check_updates_title">Buscar actualizaciones</string>
     <string name="later">Más tarde</string>
