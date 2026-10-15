@@ -19,6 +19,10 @@ Echo Music delivers a seamless, premium listening experience by leveraging YouTu
 
 ---
 
+[![Sponsor](https://readme.cash/i/qx6lmx2nwz.svg)](https://readme.cash/c/qx6lmx2nwz)
+
+---
+
 ## Table of Contents
 
 - [Overview](#overview)
