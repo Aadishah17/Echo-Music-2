@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.add
@@ -199,7 +200,8 @@ import kotlinx.coroutines.withContext
 fun Lyrics(
   sliderPositionProvider: () -> Long?,
   modifier: Modifier = Modifier,
-  showLyrics: Boolean
+  showLyrics: Boolean,
+  compact: Boolean = false
 ) {
   val playerConnection = LocalPlayerConnection.current ?: return
   val database = LocalDatabase.current
@@ -559,7 +561,10 @@ fun Lyrics(
   var showMaxSelectionToast by remember { mutableStateOf(false) }
 
   val isLyricsProviderShown =
-    lyricsEntity?.provider != null && lyricsEntity?.provider != "Unknown" && !isSelectionModeActive
+    !compact &&
+      lyricsEntity?.provider != null &&
+      lyricsEntity?.provider != "Unknown" &&
+      !isSelectionModeActive
 
   val lazyListState = rememberLazyListState()
   var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
@@ -646,9 +651,11 @@ fun Lyrics(
     if (itemInfo != null) {
       val viewportHeight =
         lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-      val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-      val itemCenter = itemInfo.offset + itemInfo.size / 2
-      val offset = itemCenter - center
+      val anchor =
+        if (compact) lazyListState.layoutInfo.viewportStartOffset
+        else lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+      val itemAnchor = if (compact) itemInfo.offset else itemInfo.offset + itemInfo.size / 2
+      val offset = itemAnchor - anchor
       if (kotlin.math.abs(offset) > 10) {
         lazyListState.animateScrollBy(
           value = offset.toFloat(),
@@ -701,7 +708,8 @@ fun Lyrics(
   ) {
     AnimatedVisibility(
       visible =
-        showTranslationBanner &&
+        !compact &&
+          showTranslationBanner &&
           translationStatus !is LyricsTranslationHelper.TranslationStatus.Idle,
       enter = fadeIn() + slideInVertically { -it },
       exit = fadeOut() + slideOutVertically { -it },
@@ -797,7 +805,7 @@ fun Lyrics(
       }
     }
 
-    if (lyrics == LYRICS_NOT_FOUND) {
+    if (lyrics == LYRICS_NOT_FOUND && !compact) {
       Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
           text = stringResource(R.string.lyrics_not_found),
@@ -808,16 +816,24 @@ fun Lyrics(
           modifier = Modifier.alpha(0.5f)
         )
       }
-    } else {
+    } else if (!compact || isSynced) {
       LazyColumn(
         state = lazyListState,
+        userScrollEnabled = !compact,
         contentPadding =
-          WindowInsets.systemBars
-            .only(WindowInsetsSides.Top)
-            .add(WindowInsets(top = maxHeight / 3, bottom = maxHeight / 2))
-            .asPaddingValues(),
+          if (compact) {
+            PaddingValues(bottom = maxHeight)
+          } else {
+            WindowInsets.systemBars
+              .only(WindowInsetsSides.Top)
+              .add(WindowInsets(top = maxHeight / 3, bottom = maxHeight / 2))
+              .asPaddingValues()
+          },
         modifier =
-          Modifier.fadingEdge(vertical = 64.dp)
+          Modifier.then(
+              if (compact) Modifier.fadingEdge(bottom = 64.dp)
+              else Modifier.fadingEdge(vertical = 64.dp)
+            )
             .nestedScroll(
               remember {
                 object : NestedScrollConnection {

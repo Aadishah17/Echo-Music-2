@@ -5,6 +5,7 @@ import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -30,16 +30,26 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -47,15 +57,17 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.media3.exoplayer.offline.Download
 import coil3.compose.AsyncImage
 import echo.music.iad1tya.R
 import echo.music.iad1tya.musicflow.MusicFlowItem
-import echo.music.iad1tya.musicflow.MusicFlowLyricFrame
+import echo.music.iad1tya.ui.component.Lyrics
 import echo.music.iad1tya.ui.component.shimmer.ShimmerHost
 import echo.music.iad1tya.ui.component.shimmer.TextPlaceholder
 import echo.music.iad1tya.ui.screens.ambient.AmbientCanvasBackground
 import echo.music.iad1tya.ui.utils.resize
+import kotlin.math.roundToInt
 
 data class MusicFlowPageActions(
   val onTogglePlay: () -> Unit,
@@ -66,6 +78,7 @@ data class MusicFlowPageActions(
   val onDownload: () -> Unit,
   val onMore: () -> Unit,
   val onArtist: (String) -> Unit,
+  val onSeek: (Float) -> Unit,
 )
 
 @Composable
@@ -77,8 +90,7 @@ fun MusicFlowPage(
   downloadState: Int?,
   showCanvas: Boolean,
   lyricsAvailable: Boolean,
-  lyricFrame: MusicFlowLyricFrame,
-  reduceMotion: Boolean,
+  showLyrics: Boolean,
   progress: () -> Float,
   actions: MusicFlowPageActions,
   modifier: Modifier = Modifier,
@@ -116,43 +128,6 @@ fun MusicFlowPage(
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.25f)))
 
     Box(
-      modifier =
-        Modifier.align(Alignment.Center)
-          .fillMaxWidth()
-          .padding(horizontal = 24.dp)
-          .aspectRatio(1f)
-          .clip(RoundedCornerShape(24.dp))
-    ) {
-      AsyncImage(
-        model = song.thumbnail.resize(1200, 1200),
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize(),
-      )
-      if (showCanvas && isCurrentPlayback) {
-        AmbientCanvasBackground(modifier = Modifier.fillMaxSize())
-      }
-      Box(
-        contentAlignment = Alignment.Center,
-        modifier =
-          Modifier.align(Alignment.Center)
-            .size(72.dp)
-            .clip(CircleShape)
-            .clickable(role = Role.Button, onClickLabel = playPauseLabel, onClick = actions.onTogglePlay)
-            .semantics { contentDescription = playPauseLabel },
-      ) {
-        if (!showPause) {
-          Icon(
-            painter = painterResource(R.drawable.play),
-            contentDescription = null,
-            tint = Color.White.copy(alpha = 0.65f),
-            modifier = Modifier.size(56.dp),
-          )
-        }
-      }
-    }
-
-    Box(
       Modifier.fillMaxSize()
         .background(
           Brush.verticalGradient(
@@ -165,84 +140,155 @@ fun MusicFlowPage(
         )
     )
 
-    Column(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
-      Spacer(Modifier.height(TOP_BAR_SPACE))
+    BoxWithConstraints(modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+      val artworkSize = min(maxWidth, maxHeight * ARTWORK_MAX_HEIGHT_FRACTION)
+      val lyricsHeight = maxHeight * LYRICS_HEIGHT_FRACTION
+      val density = LocalDensity.current
+      var artworkRegionTopPx by remember { mutableIntStateOf(0) }
+      Column(modifier = Modifier.fillMaxSize()) {
+        Spacer(Modifier.height(TOP_BAR_SPACE))
+        Spacer(Modifier.weight(1f))
 
-      MusicFlowLyricsView(
-        frame = lyricFrame,
-        reduceMotion = reduceMotion,
-        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-      )
-
-      Spacer(Modifier.weight(1f))
-
-      Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)) {
-        Text(
-          text = song.title,
-          style = MaterialTheme.typography.headlineSmall,
-          fontWeight = FontWeight.Bold,
-          color = Color.White,
-          maxLines = 1,
-          modifier = Modifier.fillMaxWidth().basicMarquee(initialDelayMillis = 1500, velocity = 30.dp),
-        )
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+        Box(
+          modifier =
+            Modifier.fillMaxWidth()
+              .height(lyricsHeight + artworkSize * (1f - ARTWORK_LYRICS_OVERLAP))
+              .onPlaced { artworkRegionTopPx = it.positionInParent().y.roundToInt() }
         ) {
-          Text(
-            text = artistName,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            color = Color.White.copy(alpha = 0.75f),
-            maxLines = 1,
-            modifier =
-              Modifier.weight(1f).basicMarquee(initialDelayMillis = 1500, velocity = 30.dp),
-          )
-          if (primaryArtistId != null) {
-            Spacer(Modifier.width(10.dp))
-            Text(
-              text = stringResource(R.string.view_artist),
-              style = MaterialTheme.typography.labelMedium,
-              color = Color.White.copy(alpha = 0.8f),
-              modifier =
-                Modifier.clip(RoundedCornerShape(24.dp))
-                  .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
-                  .clickable(role = Role.Button) { actions.onArtist(primaryArtistId) }
-                  .padding(horizontal = 10.dp, vertical = 3.dp),
+          Box(modifier = Modifier.align(Alignment.BottomCenter).size(artworkSize).fadedEdges()) {
+            AsyncImage(
+              model = song.thumbnail.resize(1200, 1200),
+              contentDescription = null,
+              contentScale = ContentScale.Crop,
+              modifier = Modifier.fillMaxSize(),
             )
+            if (showCanvas && isCurrentPlayback) {
+              AmbientCanvasBackground(modifier = Modifier.fillMaxSize())
+            }
+            Box(
+              contentAlignment = Alignment.Center,
+              modifier =
+                Modifier.align(Alignment.Center)
+                  .size(72.dp)
+                  .clip(CircleShape)
+                  .clickable(role = Role.Button, onClickLabel = playPauseLabel, onClick = actions.onTogglePlay)
+                  .semantics { contentDescription = playPauseLabel },
+            ) {
+              if (!showPause) {
+                Icon(
+                  painter = painterResource(R.drawable.play),
+                  contentDescription = null,
+                  tint = Color.White.copy(alpha = 0.65f),
+                  modifier = Modifier.size(56.dp),
+                )
+              }
+            }
           }
         }
-      }
 
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 12.dp),
-      ) {
-        FlowIconButton(
-          icon = if (isLiked) R.drawable.favorite else R.drawable.favorite_border,
-          label = stringResource(if (isLiked) R.string.music_flow_unlike else R.string.action_like),
-          tint = if (isLiked) MaterialTheme.colorScheme.error else Color.White,
-          onClick = actions.onLike,
+        Column(modifier = Modifier.fillMaxWidth().padding(start = CONTENT_MARGIN, end = CONTENT_MARGIN, top = 16.dp)) {
+          Text(
+            text = song.title,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = Color.White,
+            maxLines = 1,
+            modifier = Modifier.fillMaxWidth().basicMarquee(initialDelayMillis = 1500, velocity = 30.dp),
+          )
+          Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+          ) {
+            Text(
+              text = artistName,
+              style = MaterialTheme.typography.titleMedium,
+              fontWeight = FontWeight.SemiBold,
+              color = Color.White.copy(alpha = 0.75f),
+              maxLines = 1,
+              modifier =
+                Modifier.weight(1f).basicMarquee(initialDelayMillis = 1500, velocity = 30.dp),
+            )
+            if (primaryArtistId != null) {
+              Spacer(Modifier.width(10.dp))
+              Text(
+                text = stringResource(R.string.view_artist),
+                style = MaterialTheme.typography.labelMedium,
+                color = Color.White.copy(alpha = 0.8f),
+                modifier =
+                  Modifier.clip(RoundedCornerShape(24.dp))
+                    .border(1.dp, Color.White.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
+                    .clickable(role = Role.Button) { actions.onArtist(primaryArtistId) }
+                    .padding(horizontal = 10.dp, vertical = 3.dp),
+              )
+            }
+          }
+        }
+
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 4.dp),
+        ) {
+          FlowIconButton(
+            icon = if (isLiked) R.drawable.favorite else R.drawable.favorite_border,
+            label = stringResource(if (isLiked) R.string.music_flow_unlike else R.string.action_like),
+            tint = if (isLiked) MaterialTheme.colorScheme.error else Color.White,
+            onClick = actions.onLike,
+          )
+          FlowIconButton(R.drawable.lyrics, stringResource(R.string.lyrics), enabled = lyricsAvailable, onClick = actions.onLyrics)
+          FlowIconButton(R.drawable.share, stringResource(R.string.share), onClick = actions.onShare)
+          Spacer(Modifier.weight(1f))
+          DownloadButton(downloadState, actions.onDownload)
+          FlowIconButton(R.drawable.playlist_add, stringResource(R.string.add_to_playlist), onClick = actions.onAddToPlaylist)
+          FlowIconButton(R.drawable.more_vert, stringResource(R.string.more_options), onClick = actions.onMore)
+        }
+
+        FlowProgress(
+          progress = if (isCurrentPlayback) progress else ZeroProgress,
+          seekEnabled = isCurrentPlayback,
+          onSeek = actions.onSeek,
+          modifier = Modifier.padding(horizontal = PROGRESS_SIDE_MARGIN),
         )
-        FlowIconButton(R.drawable.lyrics, stringResource(R.string.lyrics), enabled = lyricsAvailable, onClick = actions.onLyrics)
-        FlowIconButton(R.drawable.share, stringResource(R.string.share), onClick = actions.onShare)
+
         Spacer(Modifier.weight(1f))
-        DownloadButton(downloadState, actions.onDownload)
-        FlowIconButton(R.drawable.playlist_add, stringResource(R.string.add_to_playlist), onClick = actions.onAddToPlaylist)
-        FlowIconButton(R.drawable.more_vert, stringResource(R.string.more_options), onClick = actions.onMore)
       }
 
-      FlowProgress(
-        progress = if (isCurrentPlayback) progress else ZeroProgress,
-        modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
-      )
+      val lyricsBottom = with(density) { artworkRegionTopPx.toDp() } + lyricsHeight
+      Box(
+        modifier =
+          Modifier.fillMaxWidth()
+            .padding(top = TOP_BAR_SPACE)
+            .height((lyricsBottom - TOP_BAR_SPACE).coerceAtLeast(0.dp))
+      ) {
+        if (showLyrics) Lyrics(sliderPositionProvider = { null }, showLyrics = true, compact = true)
+      }
     }
   }
 }
 
-private val TOP_BAR_SPACE = 64.dp
-
+private val TOP_BAR_SPACE = 56.dp
+private val CONTENT_MARGIN = 24.dp
+private val PROGRESS_SIDE_MARGIN = 36.dp
+private const val ARTWORK_MAX_HEIGHT_FRACTION = 0.46f
+private const val ARTWORK_LYRICS_OVERLAP = 0.15f
+private const val LYRICS_HEIGHT_FRACTION = 0.2f
+private const val ARTWORK_EDGE_FADE = 0.18f
 private val ZeroProgress: () -> Float = { 0f }
+
+private fun Modifier.fadedEdges(): Modifier =
+  graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+      drawContent()
+      val vertical = ARTWORK_EDGE_FADE * size.minDimension / size.height
+      val horizontal = ARTWORK_EDGE_FADE * size.minDimension / size.width
+      drawRect(
+        Brush.verticalGradient(0f to Color.Transparent, vertical to Color.Black, 1f - vertical to Color.Black, 1f to Color.Transparent),
+        blendMode = BlendMode.DstIn,
+      )
+      drawRect(
+        Brush.horizontalGradient(0f to Color.Transparent, horizontal to Color.Black, 1f - horizontal to Color.Black, 1f to Color.Transparent),
+        blendMode = BlendMode.DstIn,
+      )
+    }
 
 @Composable
 private fun DownloadButton(downloadState: Int?, onClick: () -> Unit) {
@@ -268,9 +314,41 @@ private fun DownloadButton(downloadState: Int?, onClick: () -> Unit) {
 }
 
 @Composable
-private fun FlowProgress(progress: () -> Float, modifier: Modifier = Modifier) {
-  val fraction = progress().coerceIn(0f, 1f)
-  BoxWithConstraints(modifier = modifier.fillMaxWidth().height(THUMB_SIZE), contentAlignment = Alignment.CenterStart) {
+private fun FlowProgress(
+  progress: () -> Float,
+  seekEnabled: Boolean,
+  onSeek: (Float) -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  var dragFraction by remember { mutableStateOf<Float?>(null) }
+  val currentOnSeek by rememberUpdatedState(onSeek)
+  val fraction = (dragFraction ?: progress()).coerceIn(0f, 1f)
+  val seekModifier =
+    if (seekEnabled) {
+      Modifier.pointerInput(Unit) {
+          detectTapGestures { offset -> currentOnSeek((offset.x / size.width).coerceIn(0f, 1f)) }
+        }
+        .pointerInput(Unit) {
+          detectHorizontalDragGestures(
+            onDragStart = { offset -> dragFraction = (offset.x / size.width).coerceIn(0f, 1f) },
+            onDragEnd = {
+              dragFraction?.let(currentOnSeek)
+              dragFraction = null
+            },
+            onDragCancel = { dragFraction = null },
+            onHorizontalDrag = { change, _ ->
+              change.consume()
+              dragFraction = (change.position.x / size.width).coerceIn(0f, 1f)
+            },
+          )
+        }
+    } else {
+      Modifier
+    }
+  BoxWithConstraints(
+    modifier = modifier.fillMaxWidth().height(SEEK_TOUCH_HEIGHT).then(seekModifier),
+    contentAlignment = Alignment.CenterStart,
+  ) {
     Box(Modifier.fillMaxWidth().height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.25f)))
     Box(Modifier.fillMaxWidth(fraction).height(2.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.9f)))
     Box(
@@ -280,6 +358,7 @@ private fun FlowProgress(progress: () -> Float, modifier: Modifier = Modifier) {
 }
 
 private val THUMB_SIZE = 8.dp
+private val SEEK_TOUCH_HEIGHT = 24.dp
 
 @Composable
 private fun FlowIconButton(

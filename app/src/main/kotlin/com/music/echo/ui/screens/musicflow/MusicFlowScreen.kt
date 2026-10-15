@@ -40,11 +40,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,13 +82,11 @@ import echo.music.iad1tya.db.MusicDatabase
 import echo.music.iad1tya.db.entities.LyricsEntity
 import echo.music.iad1tya.db.entities.Song
 import echo.music.iad1tya.db.entities.SongEntity
-import echo.music.iad1tya.lyrics.LyricsUtils
 import echo.music.iad1tya.models.toMediaMetadata
 import echo.music.iad1tya.models.toSongEntity
 import echo.music.iad1tya.playback.ExoDownloadService
 import echo.music.iad1tya.musicflow.MusicFlowFeedError
 import echo.music.iad1tya.musicflow.MusicFlowItem
-import echo.music.iad1tya.musicflow.MusicFlowLyricFrame
 import echo.music.iad1tya.musicflow.MusicFlowPlaybackStatus
 import echo.music.iad1tya.musicflow.MusicFlowUiState
 import echo.music.iad1tya.musicflow.TakeoverBlock
@@ -134,7 +130,6 @@ fun MusicFlowScreen(
   val mediaMetadata by playerConnection.mediaMetadata.collectAsState()
   val isPlaying by playerConnection.isEffectivelyPlaying.collectAsState()
   val currentLyrics by playerConnection.currentLyrics.collectAsState(initial = null)
-  val currentSong by playerConnection.currentSong.collectAsState(initial = null)
   val currentMediaId = mediaMetadata?.id
 
   val reduceMotion = remember { context.isReducedMotion() }
@@ -143,34 +138,17 @@ fun MusicFlowScreen(
     !preferences.dataSaver && (preferences.cellularPrefetch || !context.isActiveNetworkMetered())
   }
 
-  var positionMs by remember(currentMediaId) { mutableLongStateOf(0L) }
   var progress by remember(currentMediaId) { mutableFloatStateOf(0f) }
   LaunchedEffect(playerConnection, currentMediaId) {
     while (isActive) {
       val player = playerConnection.player
-      positionMs = player.currentPosition
       val duration = player.duration
-      progress = if (duration > 0) positionMs.toFloat() / duration else 0f
+      progress = if (duration > 0) player.currentPosition.toFloat() / duration else 0f
       delay(POSITION_POLL_MS)
     }
   }
 
   val lyricsReady = currentLyrics.isUsableFor(currentMediaId)
-  val parsedLyrics =
-    remember(currentMediaId, currentLyrics?.id, currentLyrics?.lyrics) {
-      currentLyrics?.lyrics?.takeIf { lyricsReady }
-        ?.let(LyricsUtils::parseLyrics)
-        ?.takeIf { lines -> lines.any { it.time > 0L } }
-        .orEmpty()
-    }
-  val lyricsOffset = currentSong?.takeIf { it.id == currentMediaId }?.song?.lyricsOffset?.toLong() ?: 0L
-  val lyricFrame by
-    remember(currentMediaId, preferences.lyrics, parsedLyrics, lyricsOffset) {
-      derivedStateOf {
-        if (preferences.lyrics) MusicFlowLyricFrame.at(parsedLyrics, positionMs, lyricsOffset)
-        else MusicFlowLyricFrame()
-      }
-    }
 
   var lyricsExpanded by rememberSaveable { mutableStateOf(false) }
   var playlistTarget by remember { mutableStateOf<SongItem?>(null) }
@@ -242,8 +220,7 @@ fun MusicFlowScreen(
                 downloadState = download?.state,
                 showCanvas = showCanvas && page == state.selectedIndex,
                 lyricsAvailable = isCurrent && lyricsReady,
-                lyricFrame = if (isCurrent) lyricFrame else MusicFlowLyricFrame(),
-                reduceMotion = reduceMotion,
+                showLyrics = isCurrent && preferences.lyrics,
                 progress = { progress },
                 actions =
                   MusicFlowPageActions(
@@ -259,6 +236,13 @@ fun MusicFlowScreen(
                       }
                     },
                     onArtist = { navController.navigate("artist/$it") },
+                    onSeek = { fraction ->
+                      val duration = playerConnection.player.duration
+                      if (duration > 0) {
+                        progress = fraction
+                        playerConnection.seekTo((duration * fraction).toLong())
+                      }
+                    },
                   ),
               )
             }
@@ -367,7 +351,7 @@ private fun TopBar(
 ) {
   var menuExpanded by remember { mutableStateOf(false) }
   Column(modifier = Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.safeDrawing)) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
       IconButton(onClick = onBack) {
         Icon(painterResource(R.drawable.arrow_back), contentDescription = stringResource(R.string.back_button_desc), tint = Color.White)
       }
