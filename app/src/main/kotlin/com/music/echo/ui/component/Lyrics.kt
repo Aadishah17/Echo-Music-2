@@ -105,6 +105,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.Lifecycle
@@ -434,12 +435,36 @@ fun Lyrics(
 
   val translationStatus by LyricsTranslationHelper.status.collectAsState()
   val hasActiveTranslations by LyricsTranslationHelper.hasActiveTranslations.collectAsState()
+  var showTranslationBanner by remember { mutableStateOf(false) }
 
   DisposableEffect(Unit) {
     LyricsTranslationHelper.setCompositionActive(true)
     onDispose {
       LyricsTranslationHelper.setCompositionActive(false)
       LyricsTranslationHelper.cancelTranslation()
+      LyricsTranslationHelper.resetStatus()
+    }
+  }
+
+  LaunchedEffect(mediaMetadata?.id) {
+    LyricsTranslationHelper.cancelTranslation()
+    LyricsTranslationHelper.resetStatus()
+    showTranslationBanner = false
+  }
+
+  LaunchedEffect(translationStatus) {
+    if (translationStatus !is LyricsTranslationHelper.TranslationStatus.Idle) {
+      showTranslationBanner = true
+      kotlinx.coroutines.delay(3000)
+      showTranslationBanner = false
+      if (
+        translationStatus is LyricsTranslationHelper.TranslationStatus.Error ||
+          translationStatus is LyricsTranslationHelper.TranslationStatus.Success
+      ) {
+        LyricsTranslationHelper.resetStatus()
+      }
+    } else {
+      showTranslationBanner = false
     }
   }
 
@@ -454,8 +479,10 @@ fun Lyrics(
 
       kotlinx.coroutines.delay(100)
 
+      val effectiveApiKey = if (aiProvider == "DeepL") deeplApiKey else openRouterApiKey
       if (
         autoTranslate &&
+          effectiveApiKey.isNotBlank() &&
           !LyricsTranslationHelper.hasTranslations(lyricsEntity) &&
           LyricsTranslationHelper.status.value !is
             LyricsTranslationHelper.TranslationStatus.Translating &&
@@ -672,91 +699,101 @@ fun Lyrics(
     contentAlignment = Alignment.TopCenter,
     modifier = modifier.fillMaxSize().padding(bottom = 12.dp)
   ) {
-    Box(
-      modifier = Modifier.fillMaxWidth().zIndex(1f).padding(top = 56.dp),
-      contentAlignment = Alignment.Center
+    AnimatedVisibility(
+      visible =
+        showTranslationBanner &&
+          translationStatus !is LyricsTranslationHelper.TranslationStatus.Idle,
+      enter = fadeIn() + slideInVertically { -it },
+      exit = fadeOut() + slideOutVertically { -it },
+      modifier = Modifier.fillMaxWidth().zIndex(1f).padding(top = 56.dp)
     ) {
-      when (val status = translationStatus) {
-        is LyricsTranslationHelper.TranslationStatus.Translating -> {
-          Card(
-            colors =
-              CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-          ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
+      Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        when (val status = translationStatus) {
+          is LyricsTranslationHelper.TranslationStatus.Translating -> {
+            Card(
+              colors =
+                CardDefaults.cardColors(
+                  containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+              shape = RoundedCornerShape(16.dp),
+              elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-              androidx.compose.material3.CircularProgressIndicator(
-                modifier = Modifier.size(16.dp),
-                strokeWidth = 2.dp,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-              )
-              Text(
-                text =
-                  if (status.logs.isNotEmpty()) status.logs.last()
-                  else stringResource(R.string.ai_translating_lyrics),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                androidx.compose.material3.CircularProgressIndicator(
+                  modifier = Modifier.size(16.dp),
+                  strokeWidth = 2.dp,
+                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                  text =
+                    if (status.logs.isNotEmpty()) status.logs.last()
+                    else stringResource(R.string.ai_translating_lyrics),
+                  style = MaterialTheme.typography.labelMedium,
+                  color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+              }
             }
           }
-        }
-        is LyricsTranslationHelper.TranslationStatus.Error -> {
-          Card(
-            colors =
-              CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-          ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
+          is LyricsTranslationHelper.TranslationStatus.Error -> {
+            Card(
+              colors =
+                CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+              shape = RoundedCornerShape(16.dp),
+              elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-              Icon(
-                painter = painterResource(R.drawable.error),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onErrorContainer,
-                modifier = Modifier.size(16.dp)
-              )
-              Text(
-                text = status.message,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Icon(
+                  painter = painterResource(R.drawable.error),
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onErrorContainer,
+                  modifier = Modifier.size(16.dp)
+                )
+                Text(
+                  text = status.message,
+                  style = MaterialTheme.typography.labelMedium,
+                  color = MaterialTheme.colorScheme.onErrorContainer
+                )
+              }
             }
           }
-        }
-        is LyricsTranslationHelper.TranslationStatus.Success -> {
-          Card(
-            colors =
-              CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-            shape = RoundedCornerShape(16.dp),
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-          ) {
-            Row(
-              modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-              verticalAlignment = Alignment.CenterVertically,
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
+          is LyricsTranslationHelper.TranslationStatus.Success -> {
+            Card(
+              colors =
+                CardDefaults.cardColors(
+                  containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                ),
+              shape = RoundedCornerShape(16.dp),
+              elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-              Icon(
-                painter = painterResource(R.drawable.check),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.size(16.dp)
-              )
-              Text(
-                text = stringResource(R.string.ai_lyrics_translated),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onTertiaryContainer
-              )
+              Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                Icon(
+                  painter = painterResource(R.drawable.check),
+                  contentDescription = null,
+                  tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                  modifier = Modifier.size(16.dp)
+                )
+                Text(
+                  text = stringResource(R.string.ai_lyrics_translated),
+                  style = MaterialTheme.typography.labelMedium,
+                  color = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+              }
             }
           }
+          is LyricsTranslationHelper.TranslationStatus.Idle -> {}
         }
-        is LyricsTranslationHelper.TranslationStatus.Idle -> {}
       }
     }
 
@@ -1223,7 +1260,7 @@ fun Lyrics(
                   this.alpha = if (item.isBackground) alpha * 0.8f else alpha
                   this.scaleX = scale * bgScale
                   this.scaleY = scale * bgScale
-                },
+                }.blur(blurRadius.dp),
               horizontalAlignment = agentAlignment
             ) {
               val isActiveLine = (isActiveByIndex || isActiveByTime) && isSynced
@@ -1811,7 +1848,7 @@ fun Lyrics(
                     }
                   }
 
-                  if (false) {
+                  if (hasActiveTranslations) {
                     val translatedText by item.translatedTextFlow.collectAsState()
                     translatedText?.let { translated ->
                       Text(
@@ -1837,7 +1874,7 @@ fun Lyrics(
                   inactiveAlpha = 0.35f,
                   baseFontSize = lyricsTextSize,
                   lineHeight = lyricsTextSize * lyricsLineSpacing.coerceAtMost(1.3f),
-                  showTranslated = false,
+                  showTranslated = hasActiveTranslations,
                   agentAlignment = agentAlignment,
                   agentTextAlign = agentTextAlign
                 )
@@ -1940,7 +1977,7 @@ fun Lyrics(
                   lineHeight = (lyricsTextSize * lyricsLineSpacing.coerceAtMost(1.3f)).sp
                 )
               }
-              if (false) {
+              if (true) {
 
                 subText?.let { text ->
                   Text(
@@ -1960,7 +1997,7 @@ fun Lyrics(
               }
 
               if (
-                false &&
+                hasActiveTranslations &&
                   lyricsAnimationStyle != LyricsAnimationStyle.LYRICS_V2 &&
                   lyricsAnimationStyle != LyricsAnimationStyle.APPLE_V2
               ) {

@@ -26,24 +26,22 @@ if (hasGoogleServicesConfig) {
 
 android {
   namespace = "echo.music.iad1tya"
-  compileSdk = 36
-  ndkVersion = "27.0.12077973"
+  compileSdk = 37
+  ndkVersion = "28.2.13676358"
 
   defaultConfig {
     applicationId = "echo.music.iad1tya"
     minSdk = 26
     targetSdk = 36
-    versionCode = 158
-    versionName = "1.3.0"
+    versionCode = 164
+    versionName = "1.4.3"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     vectorDrawables.useSupportLibrary = true
 
-    // LastFM API keys are supplied by local.properties or CI secrets.
-    val lastFmKey =
-      localProperties.getProperty("LASTFM_API_KEY") ?: System.getenv("LASTFM_API_KEY") ?: ""
-    val lastFmSecret =
-      localProperties.getProperty("LASTFM_SECRET") ?: System.getenv("LASTFM_SECRET") ?: ""
+    // LastFM API keys from GitHub Secrets
+    val lastFmKey = "266d77b5790e413ada7e41ef100d017a"
+    val lastFmSecret = "41d3ae3b039ddac06c37fb30055bf93b"
 
     buildConfigField("String", "LASTFM_API_KEY", "\"$lastFmKey\"")
     buildConfigField("String", "LASTFM_SECRET", "\"$lastFmSecret\"")
@@ -84,7 +82,14 @@ android {
 
   flavorDimensions += listOf("abi", "variant")
   productFlavors {
-    // GMS is the only supported variant.
+    // FOSS variant (default) - F-Droid compatible, no Google Play Services
+    create("foss") {
+      dimension = "variant"
+      isDefault = true
+      buildConfigField("Boolean", "CAST_AVAILABLE", "false")
+    }
+
+    // GMS variant - with Google Cast support (requires Google Play Services)
     create("gms") {
       dimension = "variant"
       buildConfigField("Boolean", "CAST_AVAILABLE", "true")
@@ -234,21 +239,21 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach 
 }
 
 dependencies {
+  implementation("nl.dionsegijn:konfetti-compose:2.0.4")
+
   implementation(project(":core"))
   implementation(project(":playback"))
+  implementation(project(":audio-dsp"))
+  implementation(project(":dsp-core"))
+  implementation(project(":usbaudio"))
 
-  // Firebase
-  "gmsImplementation"(platform("com.google.firebase:firebase-bom:33.1.0"))
+  // Firebase - GMS flavor only (excluded from F-Droid / FOSS builds)
+  "gmsImplementation"(platform("com.google.firebase:firebase-bom:34.19.0"))
   "gmsImplementation"("com.google.firebase:firebase-analytics")
   "gmsImplementation"("com.google.firebase:firebase-crashlytics")
 
-  // Google Drive Sync
-  "gmsImplementation"(libs.play.services.auth)
+  // GMS Location Services for high-accuracy weather AI context
   "gmsImplementation"(libs.play.services.location)
-  "gmsImplementation"(libs.google.api.client.android)
-  "gmsImplementation"(libs.google.api.services.drive) {
-    exclude(group = "org.apache.httpcomponents")
-  }
 
   implementation(libs.haze)
   implementation(libs.guava)
@@ -277,7 +282,6 @@ dependencies {
   implementation(libs.androidx.adaptive.navigation)
   implementation(libs.palette)
   implementation(libs.materialKolor)
-  implementation(libs.androidx.browser)
 
   implementation(libs.appcompat)
 
@@ -296,7 +300,7 @@ dependencies {
   implementation(libs.media3.cronet)
   implementation("com.google.android.gms:play-services-cronet:18.0.1")
 
-  // Google Cast
+  // Google Cast - only included in GMS flavor (not available in F-Droid/FOSS builds)
   "gmsImplementation"(libs.mediarouter)
   "gmsImplementation"(libs.cast.framework)
 
@@ -309,10 +313,13 @@ dependencies {
   implementation(libs.apache.lang3)
 
   implementation(libs.hilt)
-  implementation(libs.jsoup)
   ksp(libs.hilt.compiler)
+  ksp("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
+  annotationProcessor("org.jetbrains.kotlin:kotlin-metadata-jvm:2.4.20")
 
   implementation(project(":innertube"))
+  implementation("com.github.MetrolistGroup.innertubex:innertubex-android:v0.7.0")
+
   implementation(project(":lyrics"))
   implementation(project(":kugou"))
   implementation(project(":lrclib"))
@@ -348,4 +355,6 @@ dependencies {
   implementation(libs.ffmpeg.kit.audio)
 
   testImplementation(libs.junit)
+  testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.robolectric)
 }

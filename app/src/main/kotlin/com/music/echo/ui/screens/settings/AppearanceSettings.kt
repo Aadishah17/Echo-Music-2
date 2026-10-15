@@ -55,6 +55,7 @@ import androidx.core.content.edit
 import androidx.navigation.NavController
 import echo.music.iad1tya.LocalPlayerAwareWindowInsets
 import echo.music.iad1tya.R
+import echo.music.iad1tya.constants.AppFont
 import echo.music.iad1tya.constants.AppIconTypeKey
 import echo.music.iad1tya.constants.AppleMusicLyricsBlurKey
 import echo.music.iad1tya.constants.CanvasThumbnailAnimationKey
@@ -64,11 +65,17 @@ import echo.music.iad1tya.constants.DefaultOpenTabKey
 import echo.music.iad1tya.constants.DensityScale
 import echo.music.iad1tya.constants.DensityScaleKey
 import echo.music.iad1tya.constants.DynamicThemeKey
+import echo.music.iad1tya.constants.EnableClickHapticsKey
 import echo.music.iad1tya.constants.EnableHapticsKey
 import echo.music.iad1tya.constants.EnableHighRefreshRateKey
+import echo.music.iad1tya.constants.EnableLongPressHapticsKey
 import echo.music.iad1tya.constants.EnableLyricsThumbnailPlayPauseKey
+import echo.music.iad1tya.constants.EnableScrollEdgeHapticsKey
+import echo.music.iad1tya.constants.EnableSliderHapticsKey
 import echo.music.iad1tya.constants.GridItemSize
 import echo.music.iad1tya.constants.GridItemsSizeKey
+import echo.music.iad1tya.constants.HapticIntensity
+import echo.music.iad1tya.constants.HapticIntensityKey
 import echo.music.iad1tya.constants.HidePlayerThumbnailKey
 import echo.music.iad1tya.constants.HideStatusBarOnFullscreenKey
 import echo.music.iad1tya.constants.LibraryFilter
@@ -88,6 +95,7 @@ import echo.music.iad1tya.constants.PlayerBackgroundStyleKey
 import echo.music.iad1tya.constants.PlayerButtonsStyle
 import echo.music.iad1tya.constants.PlayerButtonsStyleKey
 import echo.music.iad1tya.constants.RotatingThumbnailKey
+import echo.music.iad1tya.constants.SelectedFontKey
 import echo.music.iad1tya.constants.SelectedThemeColorKey
 import echo.music.iad1tya.constants.ShowBottomPlaylistKey
 import echo.music.iad1tya.constants.ShowCachedPlaylistKey
@@ -99,6 +107,7 @@ import echo.music.iad1tya.constants.ShowTopPlaylistKey
 import echo.music.iad1tya.constants.SliderStyle
 import echo.music.iad1tya.constants.SliderStyleKey
 import echo.music.iad1tya.constants.SquigglySliderKey
+import echo.music.iad1tya.constants.WavyPlayPauseKey
 import echo.music.iad1tya.constants.SwipeLyricsKey
 import echo.music.iad1tya.constants.SwipeSensitivityKey
 import echo.music.iad1tya.constants.SwipeThumbnailKey
@@ -136,6 +145,7 @@ fun AppearanceSettings(
 ) {
   val scrollState = androidx.compose.foundation.rememberScrollState()
 
+  val (selectedFontValue) = rememberPreference(SelectedFontKey, defaultValue = AppFont.SYSTEM.value)
   val (dynamicTheme, onDynamicThemeChange) =
     rememberPreference(DynamicThemeKey, defaultValue = true)
   val (enableLegacyIcon, onEnableLegacyIconChange) =
@@ -150,8 +160,6 @@ fun AppearanceSettings(
   var showAppIconDialog by rememberSaveable { mutableStateOf(false) }
   val (enableHighRefreshRate, onEnableHighRefreshRateChange) =
     rememberPreference(echo.music.iad1tya.constants.EnableHighRefreshRateKey, defaultValue = true)
-  val (enableHaptics, onEnableHapticsChange) =
-    rememberPreference(echo.music.iad1tya.constants.EnableHapticsKey, defaultValue = false)
   val (liveBlurDensity, onLiveBlurDensityChange) =
     rememberPreference(echo.music.iad1tya.constants.LiveBlurDensityKey, defaultValue = 50f)
   val (selectedThemeColorInt) =
@@ -229,6 +237,8 @@ fun AppearanceSettings(
     rememberEnumPreference(SliderStyleKey, defaultValue = SliderStyle.SLIM)
   val (squigglySlider, onSquigglySliderChange) =
     rememberPreference(SquigglySliderKey, defaultValue = false)
+  val (wavyPlayPause, onWavyPlayPauseChange) =
+    rememberPreference(WavyPlayPauseKey, defaultValue = true)
   val (swipeThumbnail, onSwipeThumbnailChange) =
     rememberPreference(SwipeThumbnailKey, defaultValue = true)
   val (swipeSensitivity, onSwipeSensitivityChange) =
@@ -511,6 +521,8 @@ fun AppearanceSettings(
           PlayerBackgroundStyle.GLOW_ANIMATED -> stringResource(R.string.glow_animated)
           PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
           PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
+          PlayerBackgroundStyle.LIQUID_GLASS ->
+            stringResource(R.string.player_background_liquid_glass)
         }
       }
     )
@@ -533,6 +545,8 @@ fun AppearanceSettings(
           PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
           PlayerBackgroundStyle.GLOW_ANIMATED -> stringResource(R.string.glow_animated)
           PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
+          PlayerBackgroundStyle.LIQUID_GLASS ->
+            stringResource(R.string.player_background_liquid_glass)
           else -> stringResource(R.string.unknown)
         }
       }
@@ -585,6 +599,7 @@ fun AppearanceSettings(
       }
     )
   }
+
 
   var showGridSizeDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -914,12 +929,34 @@ fun AppearanceSettings(
           add(
             Material3SettingsItem(
               isHighlighted = (highlightKey == stringResource(R.string.legacy_icon)),
-              icon = painterResource(R.drawable.ic_app_settings),
+              icon = painterResource(R.drawable.grid_view),
               title = { Text("App Icon") },
               description = { Text("Choose your launcher icon") },
               onClick = { navController.navigate("settings/appearance/app_icon") }
             )
           )
+          add(
+            Material3SettingsItem(
+              icon = painterResource(echo.music.iad1tya.R.drawable.alphabet_cyrillic),
+              title = { Text(stringResource(echo.music.iad1tya.R.string.app_font)) },
+              trailingContent = {
+                val fontLabel =
+                  when (AppFont.fromValue(selectedFontValue)) {
+                    AppFont.SYSTEM -> stringResource(echo.music.iad1tya.R.string.font_system)
+                    AppFont.GOOGLE_SANS ->
+                      stringResource(echo.music.iad1tya.R.string.font_google_sans)
+                    AppFont.SANS_FLEX -> stringResource(echo.music.iad1tya.R.string.font_sans_flex)
+                    AppFont.OUTFIT -> stringResource(echo.music.iad1tya.R.string.font_outfit)
+                    AppFont.PLUS_JAKARTA_SANS ->
+                      stringResource(echo.music.iad1tya.R.string.font_plus_jakarta_sans)
+                    AppFont.CUSTOM -> stringResource(echo.music.iad1tya.R.string.font_custom)
+                  }
+                Text(fontLabel)
+              },
+              onClick = { navController.navigate("settings/appearance/font") }
+            )
+          )
+
           add(
             Material3SettingsItem(
               isHighlighted = (highlightKey == stringResource(R.string.theme)),
@@ -930,6 +967,14 @@ fun AppearanceSettings(
             )
           )
 
+          add(
+            Material3SettingsItem(
+              icon = painterResource(R.drawable.water_drop),
+              title = { Text(stringResource(R.string.liquid_glass)) },
+              description = { Text(stringResource(R.string.liquid_glass_settings)) },
+              onClick = { navController.navigate("settings/appearance/liquidglass") }
+            )
+          )
           add(
             Material3SettingsItem(
               isHighlighted = (highlightKey == stringResource(R.string.enable_high_refresh_rate)),
@@ -955,34 +1000,6 @@ fun AppearanceSettings(
               onClick = { onEnableHighRefreshRateChange(!enableHighRefreshRate) }
             )
           )
-
-          if (!isUsingCustomColor) {
-            add(
-              Material3SettingsItem(
-                isHighlighted = (highlightKey == stringResource(R.string.enable_dynamic_theme)),
-                icon = painterResource(R.drawable.palette),
-                title = { Text(stringResource(R.string.enable_dynamic_theme)) },
-                description = { Text(stringResource(R.string.enable_dynamic_theme_desc)) },
-                trailingContent = {
-                  Switch(
-                    checked = dynamicTheme,
-                    onCheckedChange = onDynamicThemeChange,
-                    thumbContent = {
-                      Icon(
-                        painter =
-                          painterResource(
-                            id = if (dynamicTheme) R.drawable.check else R.drawable.close
-                          ),
-                        contentDescription = null,
-                        modifier = Modifier.size(SwitchDefaults.IconSize)
-                      )
-                    }
-                  )
-                },
-                onClick = { onDynamicThemeChange(!dynamicTheme) }
-              )
-            )
-          }
         }
     )
 
@@ -1007,6 +1024,8 @@ fun AppearanceSettings(
                     PlayerBackgroundStyle.BLUR -> stringResource(R.string.player_background_blur)
                     PlayerBackgroundStyle.GLOW_ANIMATED -> stringResource(R.string.glow_animated)
                     PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
+                    PlayerBackgroundStyle.LIQUID_GLASS ->
+                      stringResource(R.string.player_background_liquid_glass)
                     else -> stringResource(R.string.follow_theme)
                   }
                 )
@@ -1103,6 +1122,8 @@ fun AppearanceSettings(
                   PlayerBackgroundStyle.GLOW_ANIMATED -> stringResource(R.string.glow_animated)
                   PlayerBackgroundStyle.APPLE_MUSIC -> stringResource(R.string.apple_music)
                   PlayerBackgroundStyle.LIVE_MESH -> stringResource(R.string.live_mesh)
+                  PlayerBackgroundStyle.LIQUID_GLASS ->
+                    stringResource(R.string.player_background_liquid_glass)
                 }
               )
             },
@@ -1205,6 +1226,29 @@ fun AppearanceSettings(
               )
             },
             onClick = { showSliderOptionDialog = true }
+          ),
+          Material3SettingsItem(
+            isHighlighted = (highlightKey == stringResource(R.string.wavy_play_pause)),
+            icon = painterResource(R.drawable.play),
+            title = { Text(stringResource(R.string.wavy_play_pause)) },
+            description = { Text(stringResource(R.string.wavy_play_pause_desc)) },
+            trailingContent = {
+              Switch(
+                checked = wavyPlayPause,
+                onCheckedChange = onWavyPlayPauseChange,
+                thumbContent = {
+                  Icon(
+                    painter =
+                      painterResource(
+                        if (wavyPlayPause) R.drawable.check else R.drawable.close
+                      ),
+                    contentDescription = null,
+                    modifier = Modifier.size(SwitchDefaults.IconSize)
+                  )
+                }
+              )
+            },
+            onClick = { onWavyPlayPauseChange(!wavyPlayPause) }
           ),
           Material3SettingsItem(
             isHighlighted = (highlightKey == stringResource(R.string.enable_swipe_thumbnail)),
@@ -1634,11 +1678,12 @@ fun AppearanceSettings(
 
     Spacer(modifier = Modifier.height(16.dp))
 
+
     Material3SettingsGroup(
       scrollState = scrollState,
       title = stringResource(R.string.misc),
       items =
-        listOf(
+        listOfNotNull(
           Material3SettingsItem(
             isHighlighted = (highlightKey == stringResource(R.string.default_open_tab)),
             icon = painterResource(R.drawable.nav_bar),
@@ -1694,28 +1739,16 @@ fun AppearanceSettings(
             onClick = { onSwipeToSongChange(!swipeToSong) }
           ),
           Material3SettingsItem(
-            isHighlighted = (highlightKey == stringResource(R.string.enable_haptics)),
+            isHighlighted = (highlightKey == stringResource(R.string.haptics)),
             icon = painterResource(R.drawable.vibration),
-            title = { Text(stringResource(R.string.enable_haptics)) },
-            description = { Text(stringResource(R.string.enable_haptics_desc)) },
-            trailingContent = {
-              Switch(
-                checked = enableHaptics,
-                onCheckedChange = onEnableHapticsChange,
-                thumbContent = {
-                  Icon(
-                    painter =
-                      painterResource(
-                        id = if (enableHaptics) R.drawable.check else R.drawable.close
-                      ),
-                    contentDescription = null,
-                    modifier = Modifier.size(SwitchDefaults.IconSize)
-                  )
-                }
-              )
-            },
-            onClick = { onEnableHapticsChange(!enableHaptics) }
+            title = { Text(stringResource(R.string.haptics)) },
+            description = { Text(stringResource(R.string.haptics_desc)) },
+            onClick = { navController.navigate("settings/appearance/haptics") }
           ),
+
+
+
+
           Material3SettingsItem(
             isHighlighted = (highlightKey == stringResource(R.string.swipe_song_to_remove)),
             icon = painterResource(R.drawable.swipe),

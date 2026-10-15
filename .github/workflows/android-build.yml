@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build Signed APK
@@ -13,7 +16,7 @@ jobs:
 
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         submodules: recursive
 
@@ -23,6 +26,16 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: gradle
+
+    - name: Setup Android NDK
+      run: |
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+        $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;28.2.13676358" || true
+
+    - name: Run Unit Tests
+      run: |
+        chmod +x gradlew
+        ./gradlew :core:testDebugUnitTest :lyrics:testDebugUnitTest :app:testUniversalGmsDebugUnitTest
 
     - name: Decode Keystore
       if: ${{ env.KEYSTORE_BASE64 != '' }}
@@ -35,8 +48,6 @@ jobs:
       if: ${{ env.KEYSTORE_BASE64 != '' }}
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-        LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
@@ -48,8 +59,6 @@ jobs:
       if: ${{ env.KEYSTORE_BASE64 == '' }}
       env:
         KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
-        LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
       run: |
         mkdir -p "$HOME/.android"
         keytool -genkeypair \
@@ -61,10 +70,10 @@ jobs:
           -keyalg RSA \
           -validity 10000
         chmod +x gradlew
-        ./gradlew assembleUniversalGmsDebug
+        ./gradlew assembleUniversalFossDebug
 
     - name: Upload Universal APK
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: Echo-Music-Universal-APK
         path: app/build/outputs/apk/**/*.apk

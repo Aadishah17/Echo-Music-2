@@ -34,6 +34,7 @@ import echo.music.iad1tya.BuildConfig
 import echo.music.iad1tya.LocalPlayerAwareWindowInsets
 import echo.music.iad1tya.R
 import echo.music.iad1tya.constants.AudioNormalizationKey
+import echo.music.iad1tya.constants.VarispeedKey
 import echo.music.iad1tya.constants.AudioOffload
 import echo.music.iad1tya.constants.AudioQuality
 import echo.music.iad1tya.constants.AudioQualityKey
@@ -47,8 +48,11 @@ import echo.music.iad1tya.constants.CrossfadeEnabledKey
 import echo.music.iad1tya.constants.CrossfadeGaplessKey
 import echo.music.iad1tya.constants.DisableLoadMoreWhenRepeatAllKey
 import echo.music.iad1tya.constants.DownloadOnWifiOnlyKey
+import echo.music.iad1tya.constants.DownloadWithMetadataKey
+import echo.music.iad1tya.constants.EnableBitPerfectUsbDacKey
 import echo.music.iad1tya.constants.EnableExportAsMp3Key
 import echo.music.iad1tya.constants.EnableGoogleCastKey
+import echo.music.iad1tya.constants.UsbDacVolumeModeKey
 import echo.music.iad1tya.constants.HistoryDuration
 import echo.music.iad1tya.constants.KeepScreenOn
 import echo.music.iad1tya.constants.PauseOnMute
@@ -103,6 +107,7 @@ fun PlayerSettings(
   val (skipSilence, onSkipSilenceChange) = rememberPreference(SkipSilenceKey, defaultValue = false)
   val (skipSilenceInstant, onSkipSilenceInstantChange) =
     rememberPreference(SkipSilenceInstantKey, defaultValue = false)
+  val (varispeed, onVarispeedChange) = rememberPreference(VarispeedKey, defaultValue = false)
   val (audioNormalization, onAudioNormalizationChange) =
     rememberPreference(AudioNormalizationKey, defaultValue = true)
   val (audioLoudnessPreset, onAudioLoudnessPresetChange) =
@@ -117,6 +122,12 @@ fun PlayerSettings(
 
   val (audioOffload, onAudioOffloadChange) =
     rememberPreference(key = AudioOffload, defaultValue = false)
+
+  val (enableBitPerfectUsbDac, onEnableBitPerfectUsbDacChange) =
+    rememberPreference(key = EnableBitPerfectUsbDacKey, defaultValue = false)
+
+  val (usbDacVolumeMode, onUsbDacVolumeModeChange) =
+    rememberPreference(key = UsbDacVolumeModeKey, defaultValue = "PURE_BIT_PERFECT")
 
   val (preloadNextSongEnabled, onPreloadNextSongEnabledChange) =
     rememberPreference(key = PreloadNextSongEnabledKey, defaultValue = true)
@@ -149,6 +160,8 @@ fun PlayerSettings(
     rememberPreference(AutoDownloadOnLikeKey, defaultValue = false)
   val (downloadOnWifiOnly, onDownloadOnWifiOnlyChange) =
     rememberPreference(DownloadOnWifiOnlyKey, defaultValue = false)
+  val (downloadWithMetadata, onDownloadWithMetadataChange) =
+    rememberPreference(DownloadWithMetadataKey, defaultValue = true)
   val (similarContentEnabled, similarContentEnabledChange) =
     rememberPreference(key = SimilarContent, defaultValue = true)
   val (autoSkipNextOnError, onAutoSkipNextOnErrorChange) =
@@ -274,7 +287,7 @@ fun PlayerSettings(
         ),
       valueText = {
         when (it) {
-          echo.music.iad1tya.constants.PlaybackEngine.POTOKEN -> "PoToken (Recommended)"
+          echo.music.iad1tya.constants.PlaybackEngine.POTOKEN -> "eXtended InnerTube"
           echo.music.iad1tya.constants.PlaybackEngine.BRAVEPIPE -> "BravePipe (NewPipe)"
           echo.music.iad1tya.constants.PlaybackEngine.AUTO -> "Auto (Try Both)"
         }
@@ -410,6 +423,37 @@ fun PlayerSettings(
 
           add(
             Material3SettingsItem(
+              isHighlighted = (highlightKey == "Download with metadata"),
+              icon = painterResource(R.drawable.download),
+              title = { Text("Download with metadata") },
+              description = { Text("Downloads lyrics when downloading a song") },
+              trailingContent = {
+                Switch(
+                  checked = downloadWithMetadata,
+                  onCheckedChange = onDownloadWithMetadataChange,
+                  thumbContent = {
+                    if (downloadWithMetadata) {
+                      Icon(
+                        painter = painterResource(id = R.drawable.check),
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize),
+                      )
+                    } else {
+                      Icon(
+                        painter = painterResource(id = R.drawable.close),
+                        contentDescription = null,
+                        modifier = Modifier.size(SwitchDefaults.IconSize),
+                      )
+                    }
+                  }
+                )
+              },
+              onClick = { onDownloadWithMetadataChange(!downloadWithMetadata) }
+            )
+          )
+
+          add(
+            Material3SettingsItem(
               isHighlighted = (highlightKey == stringResource(R.string.download_on_wifi_only)),
               icon = painterResource(R.drawable.download),
               title = { Text(stringResource(R.string.download_on_wifi_only)) },
@@ -442,7 +486,7 @@ fun PlayerSettings(
               description = {
                 Text(
                   when (playbackEngine) {
-                    echo.music.iad1tya.constants.PlaybackEngine.POTOKEN -> "PoToken (Recommended)"
+                    echo.music.iad1tya.constants.PlaybackEngine.POTOKEN -> "eXtended InnerTube"
                     echo.music.iad1tya.constants.PlaybackEngine.BRAVEPIPE -> "BravePipe (NewPipe)"
                     echo.music.iad1tya.constants.PlaybackEngine.AUTO -> "Auto (Try Both)"
                   }
@@ -614,6 +658,32 @@ fun PlayerSettings(
 
           add(
             Material3SettingsItem(
+              isHighlighted = (highlightKey == "Bit-Perfect USB-DAC"),
+              icon = painterResource(R.drawable.volume_up),
+              title = { Text("Bit-Perfect USB-DAC Output") },
+              description = { Text("Direct UAC1/UAC2 driver bypassing Android OS mixer") },
+              trailingContent = {
+                Switch(
+                  checked = enableBitPerfectUsbDac,
+                  onCheckedChange = onEnableBitPerfectUsbDacChange,
+                  thumbContent = {
+                    Icon(
+                      painter =
+                        painterResource(
+                          id = if (enableBitPerfectUsbDac) R.drawable.check else R.drawable.close
+                        ),
+                      contentDescription = null,
+                      modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                  }
+                )
+              },
+              onClick = { onEnableBitPerfectUsbDacChange(!enableBitPerfectUsbDac) }
+            )
+          )
+
+          add(
+            Material3SettingsItem(
               isHighlighted = (highlightKey == stringResource(R.string.history_duration)),
               icon = painterResource(R.drawable.history),
               title = { Text(stringResource(R.string.history_duration)) },
@@ -702,6 +772,28 @@ fun PlayerSettings(
                 )
               },
               onClick = { onAudioNormalizationChange(!audioNormalization) }
+            )
+          )
+          add(
+            Material3SettingsItem(
+              isHighlighted = (highlightKey == stringResource(R.string.varispeed)),
+              icon = painterResource(R.drawable.speed),
+              title = { Text(stringResource(R.string.varispeed)) },
+              description = { Text(stringResource(R.string.varispeed_description)) },
+              trailingContent = {
+                Switch(
+                  checked = varispeed,
+                  onCheckedChange = onVarispeedChange,
+                  thumbContent = {
+                    Icon(
+                      painter = painterResource(id = if (varispeed) R.drawable.check else R.drawable.close),
+                      contentDescription = null,
+                      modifier = Modifier.size(SwitchDefaults.IconSize)
+                    )
+                  }
+                )
+              },
+              onClick = { onVarispeedChange(!varispeed) }
             )
           )
           add(

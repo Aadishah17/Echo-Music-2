@@ -75,8 +75,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.painterResource
@@ -91,6 +91,7 @@ import coil3.compose.AsyncImage
 import coil3.request.CachePolicy
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import com.music.echo.utils.hapticScrollEdge
 import com.music.innertube.YouTube
 import com.music.innertube.models.AlbumItem
 import com.music.innertube.models.ArtistItem
@@ -823,6 +824,7 @@ fun HomeScreen(
           val base =
             when (section) {
               HomeSection.QuickPicks -> 10000
+              is HomeSection.HomePageSection -> 9000 - (section.index * 10)
               HomeSection.SpeedDial,
               HomeSection.DailyDiscover -> 500
               HomeSection.KeepListening,
@@ -860,8 +862,8 @@ fun HomeScreen(
 
         list.sortedByDescending { section ->
           when (section) {
+            is HomeSection.HomePageSection -> 900 - section.index
             is HomeSection.SimilarRecommendation -> 30 - section.index
-            is HomeSection.HomePageSection -> 20 - section.index
             else -> defaultOrder[section] ?: 0
           }
         }
@@ -910,6 +912,7 @@ fun HomeScreen(
 
       LazyColumn(
         state = lazylistState,
+        modifier = Modifier.hapticScrollEdge(lazylistState),
         contentPadding = LocalPlayerAwareWindowInsets.current.asPaddingValues()
       ) {
         item {
@@ -1175,23 +1178,28 @@ fun HomeScreen(
               quickPicks
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { quickPicks ->
-                  item(key = "quick_picks_title") {
-                    NavigationTitle(
-                      title = stringResource(R.string.quick_picks),
-                      modifier = Modifier.animateItem()
-                    )
-                  }
-
                   item(key = "quick_picks_list") {
                     val distinctQuickPicks = quickPicks.distinctBy { it.id }
                     val configuration = LocalConfiguration.current
                     val heroWidth = configuration.screenWidthDp.dp - 32.dp
+
+                    val carouselState = rememberCarouselState { distinctQuickPicks.size }
+                    LaunchedEffect(carouselState) {
+                      while (true) {
+                        kotlinx.coroutines.delay(5000)
+                        if (distinctQuickPicks.isNotEmpty() && !carouselState.isScrollInProgress) {
+                          val nextIndex = (carouselState.currentItem + 1) % distinctQuickPicks.size
+                          carouselState.animateScrollToItem(nextIndex)
+                        }
+                      }
+                    }
+
                     HorizontalCenteredHeroCarousel(
-                      state = rememberCarouselState { distinctQuickPicks.size },
+                      state = carouselState,
                       maxItemWidth = heroWidth,
                       itemSpacing = 8.dp,
                       contentPadding = PaddingValues(horizontal = 16.dp),
-                      modifier = Modifier.fillMaxWidth().height(290.dp).animateItem()
+                      modifier = Modifier.fillMaxWidth().height(360.dp).animateItem()
                     ) { index ->
                       val originalSong = distinctQuickPicks[index]
                       val song by
@@ -1276,15 +1284,15 @@ fun HomeScreen(
                         Column(modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)) {
                           Text(
                             text = song!!.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                             color = Color.White,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                           )
                           Text(
                             text = song!!.artists.joinToString { it.name },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.8f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                           )
@@ -1810,8 +1818,8 @@ fun HomeScreen(
                   Spacer(
                     modifier =
                       Modifier.padding(horizontal = 8.dp, vertical = 12.dp)
-                        .width(250.dp)
-                        .height(290.dp)
+                        .width(300.dp)
+                        .height(360.dp)
                         .clip(MaterialTheme.shapes.extraLarge)
                         .background(MaterialTheme.colorScheme.surfaceVariant)
                   )

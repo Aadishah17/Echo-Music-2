@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -47,22 +49,51 @@ fun AppFloatingNavBar(
   onAccessoryClick: () -> Unit = {},
   onMusicRecognitionClick: (() -> Unit)? = null,
   musicRecognitionContentDescription: String = "",
+  onSearchLongClick: (() -> Unit)? = null,
 ) {
 
-  val backgroundColor =
-    if (pureBlack) Color.Black else MaterialTheme.colorScheme.surfaceContainerHigh
-  val adaptiveTextColor =
-    if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) Color.Black else Color.White
+  val glassConfig = LocalGlassEffectConfig.current
+  val useGlass = glassConfig.isEnabledFor(GlassComponent.NAV_BAR)
 
-  val selectedContentColor = if (pureBlack) Color.White else MaterialTheme.colorScheme.primary
+  val backgroundColor =
+    when {
+      useGlass -> Color.Transparent
+      pureBlack -> Color.Black
+      else -> MaterialTheme.colorScheme.surfaceContainerHigh
+    }
+
+  val adaptiveTextColor =
+    if (glassConfig.textColor.isSpecified) {
+      glassConfig.textColor
+    } else if (MaterialTheme.colorScheme.surface.luminance() > 0.5f) {
+      Color.Black
+    } else {
+      Color.White
+    }
+
+  val selectedContentColor =
+    when {
+      useGlass -> adaptiveTextColor
+      pureBlack -> Color.White
+      else -> MaterialTheme.colorScheme.primary
+    }
+
   val unselectedContentColor =
     when {
-      false -> adaptiveTextColor.copy(alpha = 0.65f)
+      useGlass -> adaptiveTextColor.copy(alpha = 0.65f)
       pureBlack -> Color.White.copy(alpha = 0.65f)
       else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
-  val tabBarContentModifier = Modifier
+  val tabBarContentModifier =
+    if (useGlass) {
+      Modifier.liquidGlass(
+        config = glassConfig,
+        shape = RoundedCornerShape(percent = 50),
+      )
+    } else {
+      Modifier
+    }
 
   val selectedTabKey =
     navigationItems
@@ -74,7 +105,7 @@ fun AppFloatingNavBar(
 
   val accessoryContentColor =
     when {
-      false -> adaptiveTextColor
+      useGlass -> adaptiveTextColor
       pureBlack -> Color.White
       else -> MaterialTheme.colorScheme.onSurface
     }
@@ -193,6 +224,7 @@ fun AppFloatingNavBar(
           )
         },
         onClick = { onItemClick(screen, isSelected) },
+        onLongClick = onSearchLongClick,
       )
     }
   }

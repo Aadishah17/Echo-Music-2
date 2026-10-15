@@ -13,23 +13,30 @@ enum class AppIconType(val value: Int) {
   POOKIE(5),
   SKY(6),
   ECHO_CAT(7),
-  EKO(8),
-  WIERD_CAT(9)
+  BILLIE_EILISH(13),
+  SABRINA_CARPENTER(14),
+  SABRINA_CARPENTER_2(15),
+  CRAFT(16),
+  SADIE(17)
 }
 
 object IconUtils {
   fun setIcon(context: Context, iconType: AppIconType) {
     val pm = context.packageManager
+
     val dynamic = ComponentName(context, "echo.music.iad1tya.MainActivityAlias")
-    val static = ComponentName(context, "echo.music.iad1tya.MainActivityStatic")
     val legacy = ComponentName(context, "echo.music.iad1tya.MainActivityLegacy")
+    val static = ComponentName(context, "echo.music.iad1tya.MainActivityStatic")
     val cat = ComponentName(context, "echo.music.iad1tya.MainActivityCat")
     val crazyBlue = ComponentName(context, "echo.music.iad1tya.MainActivityCrazyBlue")
     val pookie = ComponentName(context, "echo.music.iad1tya.MainActivityPookie")
     val sky = ComponentName(context, "echo.music.iad1tya.MainActivitySky")
     val echoCat = ComponentName(context, "echo.music.iad1tya.MainActivityEchoCat")
-    val eko = ComponentName(context, "echo.music.iad1tya.MainActivityEko")
-    val wierdCat = ComponentName(context, "echo.music.iad1tya.MainActivityWierdCat")
+    val billieEilish = ComponentName(context, "echo.music.iad1tya.MainActivityBillieEilish")
+    val sabrina = ComponentName(context, "echo.music.iad1tya.MainActivitySabrina")
+    val sabrina2 = ComponentName(context, "echo.music.iad1tya.MainActivitySabrina2")
+    val craft = ComponentName(context, "echo.music.iad1tya.MainActivityCraft")
+    val sadie = ComponentName(context, "echo.music.iad1tya.MainActivitySadie")
 
     pm.setComponentEnabledSetting(
       dynamic,
@@ -80,14 +87,33 @@ object IconUtils {
       PackageManager.DONT_KILL_APP
     )
     pm.setComponentEnabledSetting(
-      eko,
-      if (iconType == AppIconType.EKO) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      billieEilish,
+      if (iconType == AppIconType.BILLIE_EILISH) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
       else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
       PackageManager.DONT_KILL_APP
     )
     pm.setComponentEnabledSetting(
-      wierdCat,
-      if (iconType == AppIconType.WIERD_CAT) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      sabrina,
+      if (iconType == AppIconType.SABRINA_CARPENTER) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+      PackageManager.DONT_KILL_APP
+    )
+    pm.setComponentEnabledSetting(
+      sabrina2,
+      if (iconType == AppIconType.SABRINA_CARPENTER_2)
+        PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+      PackageManager.DONT_KILL_APP
+    )
+    pm.setComponentEnabledSetting(
+      craft,
+      if (iconType == AppIconType.CRAFT) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+      else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+      PackageManager.DONT_KILL_APP
+    )
+    pm.setComponentEnabledSetting(
+      sadie,
+      if (iconType == AppIconType.SADIE) PackageManager.COMPONENT_ENABLED_STATE_ENABLED
       else PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
       PackageManager.DONT_KILL_APP
     )

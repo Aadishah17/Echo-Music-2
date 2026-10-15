@@ -1,13 +1,8 @@
 package echo.music.iad1tya.ui.screens.search
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -43,9 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -142,13 +134,13 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
 
   val searchBarHorizontalPadding by
     animateDpAsState(
-      targetValue = if (searchActive) 0.dp else 16.dp,
+      targetValue = 16.dp,
       animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing),
       label = "SearchBarHorizontalPadding"
     )
   val searchBarTopPadding by
     animateDpAsState(
-      targetValue = if (searchActive) 0.dp else 8.dp,
+      targetValue = 8.dp,
       animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing),
       label = "SearchBarTopPadding"
     )
@@ -317,7 +309,7 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
               }
             )
           },
-          expanded = searchActive,
+          expanded = false,
           onExpandedChange = { searchActive = it },
           colors =
             SearchBarDefaults.colors(
@@ -329,96 +321,8 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
             Modifier.fillMaxWidth()
               .padding(horizontal = searchBarHorizontalPadding)
               .padding(top = searchBarTopPadding)
-        ) {
-          if (showSearchContent) {
-            when (searchSource) {
-              SearchSource.LOCAL ->
-                LocalSearchScreen(
-                  query = query.text,
-                  navController = navController,
-                  onDismiss = { searchActive = false },
-                  pureBlack = pureBlack
-                )
-              SearchSource.ONLINE ->
-                OnlineSearchScreen(
-                  query = query.text,
-                  onQueryChange = { query = it },
-                  navController = navController,
-                  onSearch = {
-                    onSearchFromSuggestion(it)
-                    searchActive = false
-                  },
-                  onDismiss = { searchActive = false },
-                  pureBlack = pureBlack
-                )
-            }
-          }
-        }
-
-        AnimatedVisibility(
-          visible = !searchActive,
-          enter =
-            expandVertically(
-              animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing)
-            ) + fadeIn(),
-          exit =
-            shrinkVertically(
-              animationSpec = tween(durationMillis = 245, easing = FastOutSlowInEasing)
-            ) + fadeOut()
-        ) {
-          Column {
-            Spacer(modifier = Modifier.height(8.dp))
-            SecondaryTabRow(
-              selectedTabIndex = selectedTabIndex,
-              containerColor = Color.Transparent,
-              divider = {
-                androidx.compose.material3.HorizontalDivider(
-                  color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f),
-                  thickness = 1.5.dp
-                )
-              },
-              indicator = {
-                Box(
-                  modifier = Modifier.tabIndicatorOffset(selectedTabIndex).fillMaxWidth(),
-                  contentAlignment = Alignment.BottomCenter
-                ) {
-                  Box(
-                    modifier =
-                      Modifier.width(32.dp)
-                        .height(3.dp)
-                        .clip(RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        .background(MaterialTheme.colorScheme.onSurface)
-                  )
-                }
-              }
-            ) {
-              Tab(
-                selected = selectedTabIndex == 0,
-                onClick = { selectedTabIndex = 0 },
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text(stringResource(R.string.tab_explore)) }
-              )
-              Tab(
-                selected = selectedTabIndex == 1,
-                onClick = { selectedTabIndex = 1 },
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text("Echo Chart") }
-              )
-              Tab(
-                selected = selectedTabIndex == 2,
-                onClick = { selectedTabIndex = 2 },
-                modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-                selectedContentColor = MaterialTheme.colorScheme.onSurface,
-                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                text = { Text(stringResource(R.string.tab_album)) }
-              )
-            }
-          }
-        }
+        ) {}
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(16.dp))
       }
     },
     containerColor = if (pureBlack) Color.Black else MaterialTheme.colorScheme.background
@@ -427,13 +331,31 @@ fun SearchScreen(navController: NavController, pureBlack: Boolean) {
       LocalPlayerAwareWindowInsets.current.asPaddingValues().calculateBottomPadding()
 
     Box(modifier = Modifier.padding(top = paddingValues.calculateTopPadding()).fillMaxSize()) {
-      if (!searchActive) {
-        val tabPadding = PaddingValues(bottom = bottomPadding)
-        when (selectedTabIndex) {
-          0 -> ExploreTabContent(navController = navController, contentPadding = tabPadding)
-          1 -> SuggestionsTabContent(navController = navController, contentPadding = tabPadding)
-          2 -> AlbumsTabContent(navController = navController, contentPadding = tabPadding)
+      if (searchActive && showSearchContent) {
+        when (searchSource) {
+          SearchSource.LOCAL ->
+            LocalSearchScreen(
+              query = query.text,
+              navController = navController,
+              onDismiss = { searchActive = false },
+              pureBlack = pureBlack
+            )
+          SearchSource.ONLINE ->
+            OnlineSearchScreen(
+              query = query.text,
+              onQueryChange = { query = it },
+              navController = navController,
+              onSearch = {
+                onSearchFromSuggestion(it)
+                searchActive = false
+              },
+              onDismiss = { searchActive = false },
+              pureBlack = pureBlack
+            )
         }
+      } else if (!searchActive) {
+        val tabPadding = PaddingValues(bottom = bottomPadding)
+        SuggestionsTabContent(navController = navController, contentPadding = tabPadding)
       }
     }
   }
