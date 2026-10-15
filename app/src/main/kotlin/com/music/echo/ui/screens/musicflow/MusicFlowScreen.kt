@@ -85,6 +85,7 @@ import echo.music.iad1tya.db.entities.SongEntity
 import echo.music.iad1tya.models.toMediaMetadata
 import echo.music.iad1tya.models.toSongEntity
 import echo.music.iad1tya.playback.ExoDownloadService
+import echo.music.iad1tya.playback.PlayerConnection
 import echo.music.iad1tya.musicflow.MusicFlowFeedError
 import echo.music.iad1tya.musicflow.MusicFlowItem
 import echo.music.iad1tya.musicflow.MusicFlowPlaybackStatus
@@ -141,9 +142,8 @@ fun MusicFlowScreen(
   var progress by remember(currentMediaId) { mutableFloatStateOf(0f) }
   LaunchedEffect(playerConnection, currentMediaId) {
     while (isActive) {
-      val player = playerConnection.player
-      val duration = player.duration
-      progress = if (duration > 0) player.currentPosition.toFloat() / duration else 0f
+      val (position, duration) = playerConnection.positionAndDuration()
+      progress = if (duration > 0) position.toFloat() / duration else 0f
       delay(POSITION_POLL_MS)
     }
   }
@@ -237,7 +237,7 @@ fun MusicFlowScreen(
                     },
                     onArtist = { navController.navigate("artist/$it") },
                     onSeek = { fraction ->
-                      val duration = playerConnection.player.duration
+                      val (_, duration) = playerConnection.positionAndDuration()
                       if (duration > 0) {
                         progress = fraction
                         playerConnection.seekTo((duration * fraction).toLong())
@@ -524,6 +524,15 @@ private fun Context.shareSong(song: SongItem) {
       putExtra(Intent.EXTRA_TEXT, song.shareLink)
     }
   startActivity(Intent.createChooser(intent, null))
+}
+
+private fun PlayerConnection.positionAndDuration(): Pair<Long, Long> {
+  val castHandler = service.castConnectionHandler
+  return if (castHandler?.isCasting?.value == true) {
+    castHandler.castPosition.value to castHandler.castDuration.value
+  } else {
+    player.currentPosition to player.duration
+  }
 }
 
 private fun Context.isReducedMotion(): Boolean =
