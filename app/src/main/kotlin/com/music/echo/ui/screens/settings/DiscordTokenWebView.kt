@@ -1,6 +1,7 @@
 package echo.music.iad1tya.ui.screens.settings
 
 import android.annotation.SuppressLint
+import android.graphics.Bitmap
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
@@ -39,6 +40,15 @@ fun DiscordTokenWebView(onTokenExtracted: (String) -> Unit) {
 
         webViewClient =
           object : WebViewClient() {
+            override fun onPageStarted(view: WebView, url: String?, favicon: Bitmap?) {
+              // shortcut: POST data may be sent before this callback; use a pre-send-capable auth surface when available.
+              if (!url.isTrustedDiscordUrl()) {
+                view.stopLoading()
+                return
+              }
+              super.onPageStarted(view, url, favicon)
+            }
+
             override fun shouldOverrideUrlLoading(
               view: WebView,
               request: WebResourceRequest,

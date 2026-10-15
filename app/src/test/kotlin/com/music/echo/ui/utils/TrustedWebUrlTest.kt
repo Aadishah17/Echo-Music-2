@@ -11,5 +11,6 @@ class TrustedWebUrlTest {
     assertTrue(isTrustedHttpsUrl("https://canary.discord.com/app", "discord.com"))
     assertFalse(isTrustedHttpsUrl("http://music.youtube.com", "music.youtube.com"))
     assertFalse(isTrustedHttpsUrl("https://music.youtube.com.evil.example", "music.youtube.com"))
+    assertFalse(isTrustedHttpsUrl("https://evildiscord.com/app", "discord.com"))
   }
 }
