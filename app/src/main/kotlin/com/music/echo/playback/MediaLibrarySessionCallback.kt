@@ -294,10 +294,7 @@ constructor(
     pageSize: Int,
     params: MediaLibraryService.LibraryParams?,
   ): ListenableFuture<LibraryResult<ImmutableList<MediaItem>>> {
-    val isAutomotive =
-      browser.packageName == "com.google.android.projection.gearhead" ||
-        browser.packageName == "com.google.android.gms.car" ||
-        browser.packageName == "com.android.systemui"
+    val isAutomotive = isAutomotiveBrowser(browser)
     return scope.future(Dispatchers.IO) {
       val children =
         when (parentId) {
@@ -316,7 +313,9 @@ constructor(
                 ),
                 artist.artist.thumbnailUrl?.toUri(),
                 MediaMetadata.MEDIA_TYPE_ARTIST,
-                singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+                singleItemStyle =
+                  if (isAutomotive) MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM
+                  else MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
               )
             }
           MusicService.ALBUM ->
@@ -426,15 +425,22 @@ constructor(
     }
   }
 
+  private fun isAutomotiveBrowser(browser: MediaSession.ControllerInfo): Boolean =
+    browser.packageName == "com.google.android.projection.gearhead" ||
+      browser.packageName == "com.google.android.gms.car" ||
+      browser.packageName == "com.android.systemui"
+
   override fun onGetItem(
     session: MediaLibrarySession,
     browser: MediaSession.ControllerInfo,
     mediaId: String,
-  ): ListenableFuture<LibraryResult<MediaItem>> =
-    scope.future(Dispatchers.IO) {
-      getMediaItem(mediaId)?.let { LibraryResult.ofItem(it, null) }
+  ): ListenableFuture<LibraryResult<MediaItem>> {
+    val isAutomotive = isAutomotiveBrowser(browser)
+    return scope.future(Dispatchers.IO) {
+      getMediaItem(mediaId, isAutomotive)?.let { LibraryResult.ofItem(it, null) }
         ?: LibraryResult.ofError(SessionError.ERROR_UNKNOWN)
     }
+  }
 
   /**
    * Handles media search requests by notifying the controller that results changed. Actual results
@@ -826,7 +832,7 @@ constructor(
       ),
     )
 
-  private suspend fun getMediaItem(mediaId: String): MediaItem? {
+  private suspend fun getMediaItem(mediaId: String, isAutomotive: Boolean = false): MediaItem? {
     val path = mediaId.split("/")
     val type = path.firstOrNull() ?: return null
 
@@ -853,7 +859,9 @@ constructor(
               ),
               artist.artist.thumbnailUrl?.toUri(),
               MediaMetadata.MEDIA_TYPE_ARTIST,
-              singleItemStyle = MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM,
+              singleItemStyle =
+                if (isAutomotive) MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_CATEGORY_LIST_ITEM
+                else MediaConstants.EXTRAS_VALUE_CONTENT_STYLE_GRID_ITEM,
             )
           }
         } else {

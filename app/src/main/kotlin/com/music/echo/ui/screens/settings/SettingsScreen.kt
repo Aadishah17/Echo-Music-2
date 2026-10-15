@@ -381,7 +381,7 @@ fun SettingsScreen(
                   }
                 },
                 onClick = {
-                  val encodedTitle = android.net.Uri.encode(setting.title)
+                  val encodedTitle = Uri.encode(setting.title)
                   val finalRoute =
                     if (setting.route.contains("?")) "${setting.route}&highlightKey=$encodedTitle"
                     else "${setting.route}?highlightKey=$encodedTitle"

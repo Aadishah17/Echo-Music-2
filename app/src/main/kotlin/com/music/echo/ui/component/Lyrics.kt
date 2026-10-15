@@ -267,13 +267,13 @@ fun Lyrics(
     }
 
   val currentSongRomanize = currentSong?.song?.romanizeLyrics ?: true
+  val parsedLines = remember(lyrics) { lyrics?.let(::parseLyrics).orEmpty() }
+  val isSynced = remember(parsedLines) { parsedLines.any { it.time > 0L } }
   val lines =
-    remember(lyrics, scope, currentSongRomanize) {
+    remember(lyrics, parsedLines, scope, currentSongRomanize) {
       if (lyrics == null || lyrics == LYRICS_NOT_FOUND) {
         emptyList()
-      } else if (lyrics.startsWith("[")) {
-        val parsedLines = parseLyrics(lyrics)
-
+      } else if (parsedLines.isNotEmpty()) {
         val effJapanese = currentSongRomanize && romanizeJapaneseLyrics
         val effKorean = currentSongRomanize && romanizeKoreanLyrics
         val effRussian = currentSongRomanize && romanizeRussianLyrics
@@ -431,8 +431,6 @@ fun Lyrics(
         }
       }
     }
-  val isSynced = remember(lyrics) { !lyrics.isNullOrEmpty() && lyrics.startsWith("[") }
-
   val translationStatus by LyricsTranslationHelper.status.collectAsState()
   val hasActiveTranslations by LyricsTranslationHelper.hasActiveTranslations.collectAsState()
   var showTranslationBanner by remember { mutableStateOf(false) }
@@ -563,6 +561,19 @@ fun Lyrics(
 
   val lazyListState = rememberLazyListState()
   var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
+  var lastManualScrollTime by remember { mutableStateOf(0L) }
+
+  LaunchedEffect(
+    isAutoScrollEnabled, isSynced, isSelectionModeActive, showLyrics,
+    lazyListState.isScrollInProgress, lastManualScrollTime,
+  ) {
+    if (!isAutoScrollEnabled && isSynced && !isSelectionModeActive && showLyrics &&
+      !lazyListState.isScrollInProgress) {
+      delay(4000)
+      lastPreviewTime = 0L
+      isAutoScrollEnabled = true
+    }
+  }
 
   BackHandler(enabled = isSelectionModeActive) {
     isSelectionModeActive = false
@@ -613,10 +624,11 @@ fun Lyrics(
   LaunchedEffect(lines) {
     isSelectionModeActive = false
     selectedIndices.clear()
+    isAutoScrollEnabled = true
   }
 
-  LaunchedEffect(lyrics) {
-    if (lyrics.isNullOrEmpty() || !lyrics.startsWith("[")) {
+  LaunchedEffect(lyrics, isSynced) {
+    if (!isSynced) {
       currentLineIndex = -1
       return@LaunchedEffect
     }
@@ -828,6 +840,7 @@ fun Lyrics(
                   ): Offset {
                     if (source == NestedScrollSource.UserInput) {
                       isAutoScrollEnabled = false
+                      lastManualScrollTime = System.currentTimeMillis()
                     }
                     if (!isSelectionModeActive) {
                       lastPreviewTime = System.currentTimeMillis()
@@ -840,6 +853,7 @@ fun Lyrics(
                     available: Velocity
                   ): Velocity {
                     isAutoScrollEnabled = false
+                    lastManualScrollTime = System.currentTimeMillis()
                     if (!isSelectionModeActive) {
                       lastPreviewTime = System.currentTimeMillis()
                     }
