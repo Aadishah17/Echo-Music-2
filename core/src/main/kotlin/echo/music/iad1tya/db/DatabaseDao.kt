@@ -298,6 +298,22 @@ interface DatabaseDao {
     randomSeed: Int = Random.nextInt(1, Int.MAX_VALUE) or 1,
   ): Flow<List<Song>>
 
+  @Query("SELECT id FROM song WHERE hideFromQuickPicks = 1")
+  fun hiddenFromQuickPicksSongIds(): Flow<List<String>>
+
+  @Transaction
+  @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
+  @Query(
+    """
+        SELECT song.* FROM song
+        JOIN event ON song.id = event.songId
+        GROUP BY song.id
+        ORDER BY MAX(event.timestamp) DESC, MAX(event.rowId) DESC
+        LIMIT :limit
+    """,
+  )
+  fun recentlyPlayedSongs(limit: Int = 50): Flow<List<Song>>
+
   @Transaction
   @Query(
     """
@@ -656,9 +672,6 @@ interface DatabaseDao {
     """
   )
   fun carouselLibrarySongs(): Flow<List<Song>>
-
-  @Query("SELECT id FROM song WHERE hideFromQuickPicks = 1")
-  fun hiddenFromQuickPicksSongIds(): Flow<List<String>>
 
   @Transaction
   @SuppressWarnings(RoomWarnings.QUERY_MISMATCH)
@@ -1266,18 +1279,6 @@ interface DatabaseDao {
   @Transaction
   @Query("SELECT * FROM event ORDER BY rowId DESC")
   fun events(): Flow<List<EventWithSong>>
-
-  @Transaction
-  @Query(
-    """
-    SELECT song.* FROM song
-    JOIN event ON song.id = event.songId
-    GROUP BY song.id
-    ORDER BY MAX(event.timestamp) DESC, MAX(event.rowId) DESC
-    LIMIT :limit
-    """
-  )
-  fun recentlyPlayedSongs(limit: Int = 50): Flow<List<Song>>
 
   @Transaction
   @Query("SELECT * FROM event WHERE timestamp >= :fromTimeStamp AND timestamp < :toTimeStamp")

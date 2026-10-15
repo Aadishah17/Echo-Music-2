@@ -105,7 +105,7 @@ class YouTubeQueue(
           try {
             val nextResult = YouTube.next(endpoint, pageContinuation).getOrThrow()
             endpoint = nextResult.endpoint
-            continuation = nextResult.continuation
+            continuation = nextResult.continuation?.takeUnless { it == pageContinuation }
             retryCount = 0
             val songs = if (isRadioQueue) pageFilter.filter(nextResult.items) else nextResult.items
             if (songs.isNotEmpty()) return@withContext songs.map { it.toMediaItem() }

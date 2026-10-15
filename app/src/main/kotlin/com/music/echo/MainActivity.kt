@@ -883,7 +883,8 @@ class MainActivity : ComponentActivity() {
 
         val isLandscape = configuration.containerDpSize.width > configuration.containerDpSize.height
 
-        val showRail = isLandscape && !inSearchScreen && currentRoute != "ambient_mode"
+        val showRail =
+          isLandscape && !inSearchScreen && currentRoute != "ambient_mode" && currentRoute != "music_flow"
 
         val navPadding =
           if (shouldShowNavigationBar && !showRail) {
@@ -1245,6 +1246,7 @@ class MainActivity : ComponentActivity() {
             }
           }
 
+        val expandPlayer = remember(playerBottomSheetState) { { playerBottomSheetState.expandSoft() } }
         CompositionLocalProvider(
           LocalHapticFeedback provides customHapticFeedback,
           LocalGlassEffectConfig provides glassEffectConfig,
@@ -1259,6 +1261,7 @@ class MainActivity : ComponentActivity() {
           LocalShimmerTheme provides getShimmerTheme(),
           LocalSyncUtils provides syncUtils,
           LocalListenTogetherManager provides listenTogetherManager,
+          LocalExpandPlayer provides expandPlayer,
         ) {
           Scaffold(
             snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -1379,6 +1382,7 @@ class MainActivity : ComponentActivity() {
                   currentRoute != "update" &&
                   currentRoute != "listen_together/chat" &&
                   currentRoute != "ambient_mode" &&
+                  currentRoute != "music_flow" &&
                   currentRoute != "uptime" &&
                   currentRoute?.startsWith("settings") != true
               ) {
@@ -1505,6 +1509,7 @@ class MainActivity : ComponentActivity() {
                   currentRoute != "update" &&
                     currentRoute != "listen_together/chat" &&
                     currentRoute != "ambient_mode" &&
+                    currentRoute != "music_flow" &&
                     currentRoute != "uptime" &&
                     currentRoute?.startsWith("settings") != true
                 ) {
@@ -2005,3 +2010,4 @@ val LocalSyncUtils = staticCompositionLocalOf<SyncUtils> { error("No SyncUtils p
 val LocalListenTogetherManager =
   staticCompositionLocalOf<echo.music.iad1tya.listentogether.ListenTogetherManager?> { null }
 val LocalIsPlayerExpanded = compositionLocalOf { false }
+val LocalExpandPlayer = staticCompositionLocalOf<() -> Unit> { {} }
